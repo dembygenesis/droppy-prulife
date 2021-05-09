@@ -1,0 +1,12 @@
+DROP PROCEDURE IF EXISTS  `get_constants`;
+DELIMITER $$
+
+CREATE FUNCTION `get_constants` (
+    p_var INTEGER
+) RETURNS TEXT
+BEGIN
+    RETURN 'A';
+END $$
+
+DELIMITER;
+

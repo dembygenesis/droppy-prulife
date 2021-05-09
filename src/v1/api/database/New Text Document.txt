@@ -1,0 +1,23 @@
+-- Total Deliveries
+ SELECT
+  d.`seller_id`,
+  CONCAT(u.`lastname`, ', ', u.`firstname`) AS seller,
+  SUM(d.`amount_distributor`) AS gross_sales,
+  COUNT(DISTINCT (d.`id`)) AS number_of_deliveries
+FROM
+  delivery d
+  INNER JOIN `user` u
+    ON 1 = 1
+    AND d.`seller_id` = u.`id`
+WHERE 1 = 1
+  AND d.`created_date` BETWEEN '2020-09-01'
+  AND '2020-10-31'
+  AND d.`delivery_status_id` =
+  (SELECT
+    id
+  FROM
+    delivery_status
+  WHERE `name` = 'Delivered')
+GROUP BY u.`id`
+ORDER BY gross_sales DESC
+LIMIT 10
