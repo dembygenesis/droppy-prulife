@@ -30,7 +30,6 @@ func (h *deliveryHandler) Create(c *fiber.Ctx) error {
 			HttpStatus: http.StatusBadRequest,
 			Message:    "bad_request",
 			Error:      err,
-			Data:       nil,
 		})
 	}
 
@@ -38,6 +37,8 @@ func (h *deliveryHandler) Create(c *fiber.Ctx) error {
 	body.SellerId = caller.UserId
 
 	appError := h.service.Create(&body)
+
+
 	if appError != nil {
 		return utils.RespondError(c, config.InsertFailed, appError)
 	}

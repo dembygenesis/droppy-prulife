@@ -1,7 +1,6 @@
 package services
 
 import (
-	"errors"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/domain/delivery"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/repositories"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/utils"
@@ -58,9 +57,8 @@ func (s *service) ValidateNoEmptyParams(p *delivery.CreateDelivery) *utils.Appli
 	if len(missingParameters) > 0 {
 		return &utils.ApplicationError{
 			HttpStatus: http.StatusUnprocessableEntity,
-			Message:    "validation errors",
-			Error:      errors.New("missing parameters"),
-			Data:       missingParameters,
+			Message:    "missing parameters",
+			Error:      missingParameters,
 		}
 	} else {
 		return nil

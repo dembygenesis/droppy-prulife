@@ -1,7 +1,6 @@
 package response_builder
 
 import (
-	"fmt"
 	"reflect"
 )
 
@@ -61,29 +60,25 @@ func (r *Response) SetDeleteSuccess() {
 
 // SetErrors returns the error list in an array format.
 // It checks the error whether it is of type "error", "string", or "array of strings".
-// It then converts them into an "array of strings" format except if it is already formatted
-// that way.
+// It then converts them into an "array of strings" format except if that is already
+// the data type.
 func (r *Response) SetErrors(i interface{}) {
 	var errors []string
+	errType := reflect.TypeOf(i).String()
 
-	dataType := reflect.TypeOf(i).String()
-	fmt.Println("================= SetErrors Data type: ", dataType)
-
-
-	if dataType == "*errors.errorString" {
-		fmt.Println("================= Jay Chou: ")
-		val := i.(error)
-		errors = append(errors, val.Error())
+	if errType == "*errors.errorString" {
+		errors = append(errors, i.(error).Error())
+	} else if errType == "[]string" {
+		errors = i.([]string)
+	} else if errType == "string" {
+		errors = append(errors, i.(string))
 	} else {
-		fmt.Println("================= Else: ", dataType)
+		panic("!! Unidentified error type !!")
 	}
-
 
 	r.Data = struct {
 		Errors interface{} `json:"errors"`
 	}{
-		// Old one - but this time we're going to enforce an array of strings
-		// Errors: i,
 		Errors: errors,
 	}
 }

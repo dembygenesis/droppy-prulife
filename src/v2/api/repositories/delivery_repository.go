@@ -146,7 +146,6 @@ func (d *deliveryRepository) Create(p *delivery.CreateDelivery) *utils.Applicati
 			HttpStatus: http.StatusUnprocessableEntity,
 			Message:    err.Error(),
 			Error:      err,
-			Data:       nil,
 		}
 	}
 

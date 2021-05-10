@@ -4,6 +4,5 @@ package utils
 type ApplicationError struct {
 	HttpStatus int
 	Message    string
-	Error      error
-	Data       []string
+	Error      interface{}
 }
