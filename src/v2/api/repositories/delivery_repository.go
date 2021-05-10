@@ -82,11 +82,37 @@ func validateSellerId(tx *gorm.DB, p *delivery.CreateDelivery) error {
 	return nil
 }
 
+func validateDeliveryOption(tx *gorm.DB, p *delivery.CreateDelivery) error {
+	var deliveryOption delivery.DeliveryOption
+
+	res := tx.Table("delivery_option").
+		Select("name").
+		Where("name = ?", p.DeliveryOption).
+		First(&deliveryOption).Error
+
+	// No record found
+	if errors.Is(res, gorm.ErrRecordNotFound) {
+		return errors.New("delivery_option not found")
+	}
+	// MYSQL err
+	if res != nil {
+		return errors.New("error validating the delivery option: " + res.Error())
+	}
+
+	return nil
+}
+
 func validations(tx *gorm.DB, p *delivery.CreateDelivery) error {
 	var err error
 
 	// Validate: Seller ID
 	err = validateSellerId(tx, p)
+	if err != nil {
+		return err
+	}
+
+	// Validate: Delivery Option
+	err = validateDeliveryOption(tx, p)
 	if err != nil {
 		return err
 	}
