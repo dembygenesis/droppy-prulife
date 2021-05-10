@@ -266,7 +266,7 @@ func GetAll2(c *fiber.Ctx) error {
 		return c.JSON(response)
 	}
 
-	response.Pagination = pagination
+	response.Pagination =& pagination
 	response.ResponseMessage = "Here's the users"
 
 	userList := UserModel.ResponseUserList{
@@ -281,7 +281,7 @@ func GetAll(c *fiber.Ctx) {
 	response := response_builder.Response{}
 	response.HttpCode = 200
 
-	// Attemp to fetch all users
+	// Attempt to fetch all users
 	res, err := UserService.GetAll()
 
 	if err != nil {

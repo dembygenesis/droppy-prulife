@@ -1,5 +1,10 @@
 package response_builder
 
+import (
+	"fmt"
+	"reflect"
+)
+
 type ResponseSuccessOperation struct {
 	Response
 	Data []string `json:"data,omitempty"`
@@ -11,7 +16,7 @@ type Response struct {
 	OperationStatus string      `json:"operationStatus,omitempty"`
 	Data            interface{} `json:"data"`
 	Errors          []string    `json:"-"` // Always leave this out in the json response, this is just a container
-	Pagination      Pagination  `json:"pagination,omitempty"`
+	Pagination      *Pagination  `json:"pagination,omitempty"`
 }
 
 type Pagination struct {
@@ -54,11 +59,32 @@ func (r *Response) SetDeleteSuccess() {
 	r.OperationStatus = "DELETE_SUCCESS"
 }
 
+// SetErrors returns the error list in an array format.
+// It checks the error whether it is of type "error", "string", or "array of strings".
+// It then converts them into an "array of strings" format except if it is already formatted
+// that way.
 func (r *Response) SetErrors(i interface{}) {
+	var errors []string
+
+	dataType := reflect.TypeOf(i).String()
+	fmt.Println("================= SetErrors Data type: ", dataType)
+
+
+	if dataType == "*errors.errorString" {
+		fmt.Println("================= Jay Chou: ")
+		val := i.(error)
+		errors = append(errors, val.Error())
+	} else {
+		fmt.Println("================= Else: ", dataType)
+	}
+
+
 	r.Data = struct {
 		Errors interface{} `json:"errors"`
 	}{
-		Errors: i,
+		// Old one - but this time we're going to enforce an array of strings
+		// Errors: i,
+		Errors: errors,
 	}
 }
 

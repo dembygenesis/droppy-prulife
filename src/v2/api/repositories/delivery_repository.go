@@ -57,7 +57,7 @@ func NewDeliveryRepository() DeliveryRepository {
 }
 
 
-func validateSellerId(tx *gorm.DB, p *delivery.CreateDelivery) error {
+func (d *deliveryRepository) validateSellerId(tx *gorm.DB, p *delivery.CreateDelivery) error {
 	var _user user.User
 
 	res := tx.Model(&_user).Select("user_type.name AS user_type").
@@ -82,7 +82,7 @@ func validateSellerId(tx *gorm.DB, p *delivery.CreateDelivery) error {
 	return nil
 }
 
-func validateDeliveryOption(tx *gorm.DB, p *delivery.CreateDelivery) error {
+func (d *deliveryRepository) validateDeliveryOption(tx *gorm.DB, p *delivery.CreateDelivery) error {
 	var deliveryOption delivery.DeliveryOption
 
 	res := tx.Table("delivery_option").
@@ -98,24 +98,29 @@ func validateDeliveryOption(tx *gorm.DB, p *delivery.CreateDelivery) error {
 	if res != nil {
 		return errors.New("error validating the delivery option: " + res.Error())
 	}
-
+	// Dropship only...
+	if deliveryOption.Name != "Dropship" {
+		return errors.New("delivery_option must be dropship only: ")
+	}
 	return nil
 }
 
-func validations(tx *gorm.DB, p *delivery.CreateDelivery) error {
+func (d *deliveryRepository) validations(tx *gorm.DB, p *delivery.CreateDelivery) error {
 	var err error
 
 	// Validate: Seller ID
-	err = validateSellerId(tx, p)
+	err = d.validateSellerId(tx, p)
 	if err != nil {
 		return err
 	}
 
 	// Validate: Delivery Option
-	err = validateDeliveryOption(tx, p)
+	err = d.validateDeliveryOption(tx, p)
 	if err != nil {
 		return err
 	}
+
+	// Validate:
 
 	return nil
 }
@@ -126,7 +131,7 @@ func (d *deliveryRepository) Create(p *delivery.CreateDelivery) *utils.Applicati
 
 	err = db.Transaction(func(tx *gorm.DB) error {
 		// Validation logic
-		err = validations(tx, p)
+		err = d.validations(tx, p)
 		if err != nil {
 			return err
 		}

@@ -28,9 +28,11 @@ func RespondError(c *fiber.Ctx, operationStatus string, apiErr *ApplicationError
 	r := response_builder.Response{
 		HttpCode:        apiErr.HttpStatus,
 		ResponseMessage: apiErr.Message,
-		Data:            apiErr.Data,
+		Data:            apiErr.Error,
 		OperationStatus: operationStatus,
+		Pagination:      nil,
 	}
+	r.SetErrors(apiErr.Error)
 	return c.Status(apiErr.HttpStatus).JSON(r)
 }
 
@@ -44,3 +46,5 @@ func Respond(c *fiber.Ctx, operationStatus string, responseMessage string, data 
 	}
 	return c.Status(http.StatusOK).JSON(r)
 }
+
+
