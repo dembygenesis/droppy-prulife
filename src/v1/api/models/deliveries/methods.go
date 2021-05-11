@@ -470,9 +470,7 @@ func (d *Delivery) Create(p *ParamsCreateDelivery, f *multipart.FileHeader, user
 
 	// Update image on delivery
 	bucketPath := os.Getenv("AWS_BUCKET")
-
 	fileType := file.GetMultiPartFileType(f)
-
 	p.ImageUrl = `https://s3-ap-southeast-1.amazonaws.com/` + bucketPath + `/delivery_images/` + strconv.Itoa(lastInsertDeliveryId) + `_item.` + fileType
 
 	sqlUpdateDeliveryImageUrl := `UPDATE delivery SET image_url = ? WHERE id = ?`

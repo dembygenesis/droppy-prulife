@@ -16,9 +16,16 @@ var (
 	s3Session *s3.S3
 )
 
+func init() {
+	fmt.Println("Horah!")
+}
+
 func GetS3Instance() {
 	accessId := os.Getenv("AWS_ACCESS_KEY_ID")
 	secretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
+
+	fmt.Println("=========== accessId", accessId)
+	fmt.Println("=========== secretKey", secretKey)
 
 	awsRegion := os.Getenv("AWS_REGION")
 

@@ -60,8 +60,8 @@ func (r *Response) SetDeleteSuccess() {
 
 // SetErrors returns the error list in an array format.
 // It checks the error whether it is of type "error", "string", or "array of strings".
-// It then converts them into an "array of strings" format except if that is already
-// the data type.
+// It then converts them into an "array of strings" data type except if that is already
+// the existing data type.
 func (r *Response) SetErrors(i interface{}) {
 	var errors []string
 	errType := reflect.TypeOf(i).String()
@@ -93,7 +93,6 @@ func (r *Response) AddErrors(error string) {
 	errorStruct["errors"] = currentErrors
 
 	r.Data = errorStruct
-	// r.Data = r.Errors
 }
 
 func (r *Response) SetResponseData(data interface{}) {
@@ -104,21 +103,7 @@ type ResponseErrors struct {
 	Errors map[string][]string
 }
 
-/*func (r *Response) AddErrors(error string) {
-	if len(r.Error) == 0 {
-		r.Error = make(map[string][]string)
-		r.Error["errors"] = []string{}
-	}
-
-	r.Error["errors"] = append(r.Error["errors"], error)
-}*/
-
 func (r *ResponseSuccessOperation) AddData(text string) {
-	/*if len(r.Error) == 0 {
-		r.Error = []string
-		r.Error["errors"] = []string{}
-	}*/
-
 	r.Data = append(r.Data, text)
 }
 

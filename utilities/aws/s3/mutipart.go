@@ -10,7 +10,7 @@ import (
 	"os"
 )
 
-func IsMultipartImage(f *multipart.FileHeader) error {
+func DecodeImage(f *multipart.FileHeader) error {
 	file, err := f.Open()
 
 	_, _, err = image.Decode(file)

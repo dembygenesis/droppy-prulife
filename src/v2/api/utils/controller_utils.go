@@ -6,11 +6,6 @@ import (
 	"net/http"
 )
 
-/**
-c.Locals("tokenExtractedUserId", userId)
-c.Locals("tokenExtractedUserType", userType)
-*/
-
 type Caller struct {
 	UserId   int
 	UserType string

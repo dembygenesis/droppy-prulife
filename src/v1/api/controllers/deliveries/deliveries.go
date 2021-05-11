@@ -231,7 +231,7 @@ func CreateOld(c *fiber.Ctx) error {
 	}
 
 	// FUCK
-	err = s3.IsMultipartImage(file)
+	err = s3.DecodeImage(file)
 
 	if err != nil {
 		r := response_builder.Response{
@@ -336,7 +336,7 @@ func Create(c *fiber.Ctx) error {
 	}
 
 	// Validate image file type
-	err = s3.IsMultipartImage(file)
+	err = s3.DecodeImage(file)
 
 	if err != nil {
 		r := response_builder.Response{

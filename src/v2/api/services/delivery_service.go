@@ -4,13 +4,14 @@ import (
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/domain/delivery"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/repositories"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/utils"
+	"mime/multipart"
 	"net/http"
 	"reflect"
 )
 
 type Service interface {
 	// Implement your service methods here
-	Create(p *delivery.RequestCreateDelivery) *utils.ApplicationError
+	Create(p *delivery.RequestCreateDelivery, f *multipart.FileHeader) *utils.ApplicationError
 }
 
 type service struct {
@@ -64,13 +65,12 @@ func (s *service) ValidateNoEmptyParams(p *delivery.RequestCreateDelivery) *util
 	}
 }
 
-func (s *service) Create(p *delivery.RequestCreateDelivery) *utils.ApplicationError {
+func (s *service) Create(p *delivery.RequestCreateDelivery, f *multipart.FileHeader) *utils.ApplicationError {
 	// Ensure no empty parameters
 	appError := s.ValidateNoEmptyParams(p)
-
 	if appError != nil {
 		return appError
 	}
 
-	return s.deliveryRepo.Create(p)
+	return s.deliveryRepo.Create(p, f)
 }

@@ -53,3 +53,9 @@ func GetGormInstance(
 	})
 	return db, err
 }
+
+func GetLastInsertIDGorm(tx *gorm.DB) (int, error) {
+	var lastInsertId int
+	err := tx.Raw(`SELECT LAST_INSERT_ID()`).Scan(&lastInsertId).Error
+	return lastInsertId, err
+}

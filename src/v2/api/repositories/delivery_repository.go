@@ -2,24 +2,26 @@ package repositories
 
 import (
 	"errors"
-	"fmt"
+	"github.com/dembygenesis/droppy-prulife/src/v1/api/models/deliveries"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/config"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/domain/delivery"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/domain/sysparam"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/domain/user"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/utils"
 	"github.com/dembygenesis/droppy-prulife/utilities/database"
+	"github.com/dembygenesis/droppy-prulife/utilities/file"
 	StringUtility "github.com/dembygenesis/droppy-prulife/utilities/string"
 	"github.com/joho/godotenv"
 	"gorm.io/gorm"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"strconv"
 )
 
 type DeliveryRepository interface {
-	Create(p *delivery.RequestCreateDelivery) *utils.ApplicationError
+	Create(p *delivery.RequestCreateDelivery, f *multipart.FileHeader) *utils.ApplicationError
 }
 
 type deliveryRepository struct {
@@ -70,15 +72,12 @@ func (d *deliveryRepository) validateSellerId(tx *gorm.DB, p *delivery.RequestCr
 		Where("user_type.name = ?", config.UserTypeSeller).
 		First(&_user).Error
 
-	// No record found
 	if errors.Is(res, gorm.ErrRecordNotFound) {
 		return errors.New("seller_id not found")
 	}
-	// MYSQL err
 	if res != nil {
 		return errors.New("error validating the seller_id: " + res.Error())
 	}
-	// Non-seller error
 	if _user.UserType != config.UserTypeSeller {
 		return errors.New("seller_id must be of type 'Seller'")
 	}
@@ -96,15 +95,12 @@ func (d *deliveryRepository) validateDropshipperId(tx *gorm.DB, p *delivery.Requ
 		Where("user_type.name = ?", config.UserTypeDropshipper).
 		First(&_user).Error
 
-	// No record found
 	if errors.Is(res, gorm.ErrRecordNotFound) {
 		return errors.New("dropshipper_id not found")
 	}
-	// MYSQL err
 	if res != nil {
 		return errors.New("error validating the dropshipper_id: " + res.Error())
 	}
-	// Non-seller error
 	if _user.UserType != config.UserTypeDropshipper {
 		return errors.New("dropshipper_id must be of type 'Dropshipper'")
 	}
@@ -234,25 +230,6 @@ func (d *deliveryRepository) validations(tx *gorm.DB, p *delivery.RequestCreateD
 }
 
 func (d *deliveryRepository) createDelivery(tx *gorm.DB, p *delivery.RequestCreateDelivery) error {
-
-	// Build insert object
-	_delivery := delivery.ParamsDeliveryCreate{
-		CreatedBy:        p.SellerId,
-		UpdatedBy:        p.SellerId,
-		Name:             p.Name,
-		Address:          p.Address,
-		ServiceFee:       0, // Extract
-		DeliveryOptionId: 0, // Extract
-		DeliveryStatusId: 0, // Extract
-		SellerId:         p.SellerId,
-		DropshipperId:    p.DropshipperId,
-		ContactNumber:    p.ContactNumber,
-		Note:             p.Note,
-		ImageUrl:         p.ImageUrl,
-		ItemDescription:  p.ItemDescription,
-		PolicyNumber:     p.PolicyNumber,
-	}
-
 	var err error
 	var serviceFee float64
 	var deliveryOptionId int
@@ -268,13 +245,10 @@ func (d *deliveryRepository) createDelivery(tx *gorm.DB, p *delivery.RequestCrea
 	if res != nil {
 		return errors.New("error fetching the service_fee_type: " + res.Error())
 	}
-
 	serviceFee, err = strconv.ParseFloat(sysParam.Value, 64)
-	_delivery.ServiceFee = serviceFee
 
 	// Extract delivery option id
 	var deliveryOption delivery.DeliveryOption
-
 	res = tx.Table("delivery_option").
 		Select("`id`").
 		Where("name = ?", p.DeliveryOption).
@@ -286,9 +260,7 @@ func (d *deliveryRepository) createDelivery(tx *gorm.DB, p *delivery.RequestCrea
 	if res != nil {
 		return errors.New("error fetching the delivery option: " + res.Error())
 	}
-
 	deliveryOptionId = int(deliveryOption.Id)
-	_delivery.DeliveryOptionId = deliveryOptionId
 
 	// Extract delivery status id
 	err = tx.Table("delivery_status").
@@ -306,49 +278,53 @@ func (d *deliveryRepository) createDelivery(tx *gorm.DB, p *delivery.RequestCrea
 		return errors.New("delivery_status_id not found")
 	}
 
-	_delivery.DeliveryStatusId = deliveryStatusId
-
 	// Insert
-	/*
-		_delivery := delivery.ParamsDeliveryCreate{
-			CreatedBy:        p.SellerId,
-			UpdatedBy:        p.SellerId,
-			Name:             p.Name,
-			Address:          p.Address,
-			ServiceFee:       0, // Extract
-			DeliveryOptionId: 0, // Extract
-			DeliveryStatusId: 0, // Extract
-			SellerId:         p.SellerId,
-			DropshipperId:    p.DropshipperId,
-			ContactNumber:    p.ContactNumber,
-			Note:             p.Note,
-			ImageUrl:         p.ImageUrl,
-			ItemDescription:  p.ItemDescription,
-			PolicyNumber:     p.PolicyNumber,
-		}
-	*/
-	err = tx.Model(&delivery.Delivery{}).Create(map[string]interface{}{
-		"created_by":        p.SellerId,
-		"updated_by":        p.SellerId,
-		"name":             p.Name,
-		"address":          p.Address,
-		"service_fee":       serviceFee,
+	_delivery := map[string]interface{}{
+		"created_by":         p.SellerId,
+		"updated_by":         p.SellerId,
+		"name":               p.Name,
+		"address":            p.Address,
+		"service_fee":        serviceFee,
 		"delivery_option_id": deliveryOptionId,
 		"delivery_status_id": deliveryStatusId,
-		"seller_id":         p.SellerId,
-		"dropshipper_id":    p.DropshipperId,
-		"contact_number":   p.ContactNumber,
-		"note":             p.Note,
-		"image_url":         p.ImageUrl,
-		"item_description":  p.ItemDescription,
-		"policy_number":     p.PolicyNumber,
-	}).Error
-
-	return err
+		"seller_id":          p.SellerId,
+		"dropshipper_id":     p.DropshipperId,
+		"contact_number":     p.ContactNumber,
+		"note":               p.Note,
+		"image_url":          p.ImageUrl,
+		"item_description":   p.ItemDescription,
+		"policy_number":      p.PolicyNumber,
+	}
+	return tx.Model(&delivery.Delivery{}).Create(_delivery).Error
 }
 
-func (d *deliveryRepository) Create(p *delivery.RequestCreateDelivery) *utils.ApplicationError {
+func (d *deliveryRepository) uploadToS3AndSync(
+	tx *gorm.DB,
+	f *multipart.FileHeader,
+	p *delivery.RequestCreateDelivery,
+) error {
+	var err error
+	var lastInsertId int
 
+	// Get last insert id
+	lastInsertId, err = database.GetLastInsertIDGorm(tx)
+	if err != nil {
+		return err
+	}
+	// Send image off
+	err = deliveries.UploadDeliveryImageToS3(lastInsertId, f)
+	if err != nil {
+		return err
+	}
+	// Sync in database
+	bucketPath := os.Getenv("AWS_BUCKET")
+	fileType := file.GetMultiPartFileType(f)
+	p.ImageUrl = `https://s3-ap-southeast-1.amazonaws.com/` + bucketPath + `/delivery_images/` + strconv.Itoa(lastInsertId) + `_item.` + fileType
+	sqlUpdateDeliveryImageUrl := `UPDATE delivery SET image_url = ? WHERE id = ?`
+	return tx.Exec(sqlUpdateDeliveryImageUrl, p.ImageUrl, lastInsertId).Error
+}
+
+func (d *deliveryRepository) Create(p *delivery.RequestCreateDelivery, f *multipart.FileHeader) *utils.ApplicationError {
 	var err error
 
 	err = db.Transaction(func(tx *gorm.DB) error {
@@ -364,8 +340,11 @@ func (d *deliveryRepository) Create(p *delivery.RequestCreateDelivery) *utils.Ap
 			return err
 		}
 
-		// No, we don't need this step for now, because this will on the "Update" command
-		// Process coin updates
+		// Upload file to s3 and sync in database
+		err = d.uploadToS3AndSync(tx, f, p)
+		if err != nil {
+			return err
+		}
 
 		return nil
 	})
@@ -377,17 +356,5 @@ func (d *deliveryRepository) Create(p *delivery.RequestCreateDelivery) *utils.Ap
 			Error:      err,
 		}
 	}
-
-	// Validate user types
-
-	// Validate coin entries
-
-	// Perform insert
-
-	// Perform coin updates
-
-	fmt.Println("dan pena")
-	// Ok... Let's do the validation's here VIA SQLX
-
 	return nil
 }
