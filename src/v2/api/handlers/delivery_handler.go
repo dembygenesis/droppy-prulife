@@ -23,7 +23,7 @@ func NewDeliveryHandler(service services.Service) DeliveryHandler {
 }
 
 func (h *deliveryHandler) Create(c *fiber.Ctx) error {
-	var body delivery.CreateDelivery
+	var body delivery.RequestCreateDelivery
 	err := c.BodyParser(&body)
 	if err != nil {
 		return utils.RespondError(c, "INSERT_FAILED", &utils.ApplicationError{

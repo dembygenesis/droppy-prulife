@@ -9,3 +9,5 @@ var Dropshipper = "HANDLER_DROPSHIP_VIS/MIN"
 
 var ValidServiceFeeTypes = []string{"SERVICE_FEE_PREMIUM", "SERVICE_FEE"}
 var UserTypeSeller = "Seller"
+var UserTypeDropshipper = "Dropshipper"
+var DeliveryStatusPendingApproval = "Pending Approval"

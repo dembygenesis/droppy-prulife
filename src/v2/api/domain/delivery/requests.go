@@ -1,6 +1,6 @@
 package delivery
 
-type CreateDelivery struct {
+type RequestCreateDelivery struct {
 	DeliveryOption  string  `json:"delivery_option" form:"delivery_option" db:"delivery_option"`
 	SellerId        int     `json:"seller_id" form:"seller_id" db:"seller_id"`
 	DropshipperId   int     `json:"dropshipper_id" form:"dropshipper_id" db:"dropshipper_id"`

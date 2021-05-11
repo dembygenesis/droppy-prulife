@@ -10,7 +10,7 @@ import (
 
 type Service interface {
 	// Implement your service methods here
-	Create(p *delivery.CreateDelivery) *utils.ApplicationError
+	Create(p *delivery.RequestCreateDelivery) *utils.ApplicationError
 }
 
 type service struct {
@@ -18,7 +18,6 @@ type service struct {
 	// Composition of repositories that matches the "Service" interface above
 
 	// Why composition?
-
 }
 
 func NewDeliveryService(deliveryRepo repositories.DeliveryRepository) Service {
@@ -27,7 +26,7 @@ func NewDeliveryService(deliveryRepo repositories.DeliveryRepository) Service {
 	}
 }
 
-func (s *service) ValidateNoEmptyParams(p *delivery.CreateDelivery) *utils.ApplicationError {
+func (s *service) ValidateNoEmptyParams(p *delivery.RequestCreateDelivery) *utils.ApplicationError {
 	var missingParameters []string
 
 	pp := *p
@@ -65,7 +64,7 @@ func (s *service) ValidateNoEmptyParams(p *delivery.CreateDelivery) *utils.Appli
 	}
 }
 
-func (s *service) Create(p *delivery.CreateDelivery) *utils.ApplicationError {
+func (s *service) Create(p *delivery.RequestCreateDelivery) *utils.ApplicationError {
 	// Ensure no empty parameters
 	appError := s.ValidateNoEmptyParams(p)
 
