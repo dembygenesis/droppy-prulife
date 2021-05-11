@@ -196,6 +196,11 @@ func (d *deliveryRepository) validatePolicyNumber(tx *gorm.DB, p *delivery.Reque
 func (d *deliveryRepository) validations(tx *gorm.DB, p *delivery.RequestCreateDelivery) error {
 	var err error
 
+	// Validate: User Type
+	if p.CreatedByUserType != config.UserTypeDropshipper {
+		return errors.New("dropshippers are the only one's that can create a new policy")
+	}
+
 	// Validate: Seller ID
 	err = d.validateSellerId(tx, p)
 	if err != nil {
@@ -341,12 +346,7 @@ func (d *deliveryRepository) Create(p *delivery.RequestCreateDelivery, f *multip
 		}
 
 		// Upload file to s3 and sync in database
-		err = d.uploadToS3AndSync(tx, f, p)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return d.uploadToS3AndSync(tx, f, p)
 	})
 
 	if err != nil {
@@ -358,3 +358,4 @@ func (d *deliveryRepository) Create(p *delivery.RequestCreateDelivery, f *multip
 	}
 	return nil
 }
+

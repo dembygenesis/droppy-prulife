@@ -38,6 +38,7 @@ func (h *deliveryHandler) Create(c *fiber.Ctx) error {
 	}
 	caller := utils.GetCallerDetails(c)
 	body.SellerId = caller.UserId
+	body.CreatedByUserType = caller.UserType
 
 	// Validate file format to be image
 	file, err := c.FormFile("image")
