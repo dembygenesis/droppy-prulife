@@ -181,6 +181,21 @@ func (d *deliveryRepository) validateServiceFeeType(tx *gorm.DB, p *delivery.Req
 	return nil
 }
 
+// validateDeliveryId - ensures the seller is valid
+func (d *deliveryRepository) validateDeliveryId(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
+	var count int
+
+	err := tx.Raw("SELECT COUNT(*) FROM delivery WHERE id = ?", p.DeliveryId).Scan(&count).Error
+	if err != nil {
+		return err
+	}
+	fmt.Println("count", count)
+	if count == 0 {
+		return errors.New("delivery_id does not exist")
+	}
+	return nil
+}
+
 // validatePolicyNumber ensures that the "policy_number" to be inserted does not already exist
 func (d *deliveryRepository) validatePolicyNumber(tx *gorm.DB, p *delivery.RequestCreateDelivery) error {
 	var count int
@@ -195,7 +210,24 @@ func (d *deliveryRepository) validatePolicyNumber(tx *gorm.DB, p *delivery.Reque
 	return nil
 }
 
-func (d *deliveryRepository) validations(tx *gorm.DB, p *delivery.RequestCreateDelivery) error {
+func (d *deliveryRepository) updateValidations(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
+	var err error
+
+	// Validate: User Type
+	if p.CreatedByUserType != config.UserTypeDropshipper {
+		return errors.New("dropshippers are the only one's that can create a new policy")
+	}
+
+	// Validate: Delivery ID
+	err = d.validateDeliveryId(tx, p)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
+func (d *deliveryRepository) createValidations(tx *gorm.DB, p *delivery.RequestCreateDelivery) error {
 	var err error
 
 	// Validate: User Type
@@ -336,7 +368,7 @@ func (d *deliveryRepository) Create(p *delivery.RequestCreateDelivery, f *multip
 
 	err = db.Transaction(func(tx *gorm.DB) error {
 		// Validate
-		err = d.validations(tx, p)
+		err = d.createValidations(tx, p)
 		if err != nil {
 			return err
 		}
@@ -362,6 +394,24 @@ func (d *deliveryRepository) Create(p *delivery.RequestCreateDelivery, f *multip
 }
 
 func (d *deliveryRepository) Update(p *delivery.RequestUpdateDelivery) *utils.ApplicationError {
-	fmt.Println("here at service update")
+	var err error
+
+	err = db.Transaction(func(tx *gorm.DB) error {
+		// Validate
+		err = d.updateValidations(tx, p)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return &utils.ApplicationError{
+			HttpStatus: http.StatusUnprocessableEntity,
+			Message:    err.Error(),
+			Error:      err,
+		}
+	}
 	return nil
 }
