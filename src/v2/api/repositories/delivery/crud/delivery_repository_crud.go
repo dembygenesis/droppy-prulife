@@ -181,8 +181,7 @@ func (d *deliveryRepository) validateServiceFeeType(tx *gorm.DB, p *delivery.Req
 	return nil
 }
 
-// validateDeliveryStatusLogic - validates delivery status transition
-func (d *deliveryRepository) validateDeliveryStatusLogic(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
+func (d *deliveryRepository) getDeliveryStatusName(tx *gorm.DB, deliveryId int) (string, error) {
 	// Fetch current delivery status
 	var currentDeliveryStatus string
 
@@ -195,10 +194,16 @@ func (d *deliveryRepository) validateDeliveryStatusLogic(tx *gorm.DB, p *deliver
 				AND d.delivery_status_id = ds.id 
 		WHERE 1 = 1
 			AND d.id = ?
-	`, p.DeliveryId).Scan(&currentDeliveryStatus).Error
+	`, deliveryId).Scan(&currentDeliveryStatus).Error
 
+	return currentDeliveryStatus, err
+}
+
+// validateDeliveryStatusLogic - validates delivery status transition
+func (d *deliveryRepository) validateDeliveryStatusLogic(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
+	currentDeliveryStatus, err := d.getDeliveryStatusName(tx, p.DeliveryId)
 	if err != nil {
-		return err
+		return errors.New("error trying to fetch the current delivery status name: " + err.Error())
 	}
 
 	// Logic: Current delivery is already 'Voided'
@@ -493,8 +498,8 @@ func (d *deliveryRepository) Create(p *delivery.RequestCreateDelivery, f *multip
 	return nil
 }
 
-func (d *deliveryRepository) updateDelivery(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
-
+// updateDeliveryItemStatus - updates a delivery item's status to another
+func (d *deliveryRepository) updateDeliveryItemStatus(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
 	var err error
 	var deliveryStatusId int
 
@@ -514,9 +519,18 @@ func (d *deliveryRepository) updateDelivery(tx *gorm.DB, p *delivery.RequestUpda
 		return errors.New("delivery_status_id not found")
 	}
 
-	// MARKER
 	sqlUpdateDeliveryImageUrl := `UPDATE delivery SET delivery_status_id = ? WHERE id = ?`
-	err = tx.Exec(sqlUpdateDeliveryImageUrl, deliveryStatusId, p.DeliveryId).Error
+	return tx.Exec(sqlUpdateDeliveryImageUrl, deliveryStatusId, p.DeliveryId).Error
+}
+
+func (d *deliveryRepository) updateDelivery(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
+	var err error
+
+	// TODO: Different transition scenarios here
+
+
+	// Update delivery item status
+	err = d.updateDeliveryItemStatus(tx, p)
 
 	return err
 }
