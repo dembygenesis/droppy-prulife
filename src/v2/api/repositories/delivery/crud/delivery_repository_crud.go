@@ -181,6 +181,94 @@ func (d *deliveryRepository) validateServiceFeeType(tx *gorm.DB, p *delivery.Req
 	return nil
 }
 
+// validateDeliveryStatusLogic - validates delivery status transition
+func (d *deliveryRepository) validateDeliveryStatusLogic(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
+	// Fetch current delivery status
+	var currentDeliveryStatus string
+
+	err := tx.Raw(`
+		SELECT 
+			ds.name 
+		FROM delivery d 
+		INNER JOIN delivery_status ds 
+			ON 1 = 1
+				AND d.delivery_status_id = ds.id 
+		WHERE 1 = 1
+			AND d.id = ?
+	`, p.DeliveryId).Scan(&currentDeliveryStatus).Error
+
+	if err != nil {
+		return err
+	}
+
+	// Logic: Current delivery is already 'Voided'
+	if currentDeliveryStatus == config.DeliveryStatusVoided {
+		return errors.New("delivery_id is voided, and has no valid actions available")
+	}
+
+	// Logic: Delivery item is being 'Voided'
+	if p.DeliveryStatus == config.DeliveryStatusVoided {
+		// Throw no error and process immediately
+		return nil
+	}
+
+	// Logic: Delivery item is 'Rejected'
+	if currentDeliveryStatus == config.DeliveryStatusRejected {
+		return errors.New("delivery_id is rejected, and has no valid actions available - except 'Void'")
+	}
+
+	// Logic: Pending Approval
+	if currentDeliveryStatus == config.DeliveryStatusVoided {
+		return nil
+	}
+
+	// Logic: Pending Approval
+	if currentDeliveryStatus == config.DeliveryStatusPendingApproval {
+		if p.DeliveryStatus != config.DeliveryStatusProposed {
+			return errors.New("Pending Approval can only progress to 'Proposed' or 'Voided'")
+		}
+	}
+
+	// Logic: Proposed
+	if currentDeliveryStatus == config.DeliveryStatusProposed {
+		if !(p.DeliveryStatus == config.DeliveryStatusAccepted ||
+			p.DeliveryStatus == config.DeliveryStatusRejected) {
+			return errors.New("Proposed can only progress to 'Accepted' or 'Rejected'")
+		}
+	}
+
+	// Logic: Accepted
+	if currentDeliveryStatus == config.DeliveryStatusAccepted {
+		if p.DeliveryStatus != config.DeliveryStatusFulfilled {
+			return errors.New("Accepted can only progress to Fulfilled")
+		}
+	}
+
+	// Logic: Fulfilled
+	if currentDeliveryStatus == config.DeliveryStatusFulfilled {
+		if !(p.DeliveryStatus == config.DeliveryStatusDelivered ||
+			p.DeliveryStatus == config.DeliveryStatusRejected) {
+			return errors.New("Fulfilled can only progress to 'Delivered' or 'Rejected'")
+		}
+	}
+
+	return nil
+}
+
+// validateDeliveryStatus - ensures the delivery_status valid
+func (d *deliveryRepository) validateDeliveryStatus(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
+	var count int
+
+	err := tx.Raw("SELECT COUNT(*) FROM delivery_status WHERE name = ?", p.DeliveryStatus).Scan(&count).Error
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return errors.New("delivery_status does not exist")
+	}
+	return nil
+}
+
 // validateDeliveryId - ensures the seller is valid
 func (d *deliveryRepository) validateDeliveryId(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
 	var count int
@@ -220,6 +308,18 @@ func (d *deliveryRepository) updateValidations(tx *gorm.DB, p *delivery.RequestU
 
 	// Validate: Delivery ID
 	err = d.validateDeliveryId(tx, p)
+	if err != nil {
+		return err
+	}
+
+	// Validate: Delivery Status
+	err = d.validateDeliveryStatus(tx, p)
+	if err != nil {
+		return err
+	}
+
+	// Validate: Delivery Transition Status Logic
+	err = d.validateDeliveryStatusLogic(tx, p)
 	if err != nil {
 		return err
 	}
@@ -393,12 +493,46 @@ func (d *deliveryRepository) Create(p *delivery.RequestCreateDelivery, f *multip
 	return nil
 }
 
+func (d *deliveryRepository) updateDelivery(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
+
+	var err error
+	var deliveryStatusId int
+
+	// Extract delivery status
+	err = tx.Table("delivery_status").
+		Select("`id`").
+		Where("name = ?", p.DeliveryStatus).
+		Scan(&deliveryStatusId).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return errors.New("delivery_option not found")
+	}
+	if err != nil {
+		return errors.New("error fetching the delivery option: " + err.Error())
+	}
+	if deliveryStatusId == 0 {
+		return errors.New("delivery_status_id not found")
+	}
+
+	// MARKER
+	sqlUpdateDeliveryImageUrl := `UPDATE delivery SET delivery_status_id = ? WHERE id = ?`
+	err = tx.Exec(sqlUpdateDeliveryImageUrl, deliveryStatusId, p.DeliveryId).Error
+
+	return err
+}
+
 func (d *deliveryRepository) Update(p *delivery.RequestUpdateDelivery) *utils.ApplicationError {
 	var err error
 
 	err = db.Transaction(func(tx *gorm.DB) error {
 		// Validate
 		err = d.updateValidations(tx, p)
+		if err != nil {
+			return err
+		}
+
+		// Update
+		err = d.updateDelivery(tx, p)
 		if err != nil {
 			return err
 		}

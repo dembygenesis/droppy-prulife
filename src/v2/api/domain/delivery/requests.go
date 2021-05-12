@@ -22,7 +22,7 @@ type RequestCreateDelivery struct {
 }
 
 type RequestUpdateDelivery struct {
-	DeliveryId     int    `json:"delivery_id" form:"delivery_id" db:"delivery_id" required:"true"`
-	DeliveryStatus string `json:"delivery_status" form:"delivery_status" db:"delivery_status" required:"true"`
+	DeliveryId        int    `json:"delivery_id" form:"delivery_id" db:"delivery_id" required:"true"`
+	DeliveryStatus    string `json:"delivery_status" form:"delivery_status" db:"delivery_status" required:"true"`
 	CreatedByUserType string
 }
