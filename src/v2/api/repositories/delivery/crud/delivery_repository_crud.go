@@ -1,7 +1,8 @@
-package repositories
+package crud
 
 import (
 	"errors"
+	"fmt"
 	"github.com/dembygenesis/droppy-prulife/src/v1/api/models/deliveries"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/config"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/domain/delivery"
@@ -22,6 +23,7 @@ import (
 
 type DeliveryRepository interface {
 	Create(p *delivery.RequestCreateDelivery, f *multipart.FileHeader) *utils.ApplicationError
+	Update(p *delivery.RequestUpdateDelivery) *utils.ApplicationError
 }
 
 type deliveryRepository struct {
@@ -359,3 +361,7 @@ func (d *deliveryRepository) Create(p *delivery.RequestCreateDelivery, f *multip
 	return nil
 }
 
+func (d *deliveryRepository) Update(p *delivery.RequestUpdateDelivery) *utils.ApplicationError {
+	fmt.Println("here at service update")
+	return nil
+}

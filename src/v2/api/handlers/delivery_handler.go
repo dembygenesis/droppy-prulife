@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/config"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/domain/delivery"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/services"
@@ -13,6 +14,7 @@ import (
 type DeliveryHandler interface {
 	// Implement controller method signatures
 	Create(c *fiber.Ctx) error
+	Update(c *fiber.Ctx) error
 }
 
 type deliveryHandler struct {
@@ -21,6 +23,33 @@ type deliveryHandler struct {
 
 func NewDeliveryHandler(service services.Service) DeliveryHandler {
 	return &deliveryHandler{service}
+}
+
+func (h *deliveryHandler) Update(c *fiber.Ctx) error {
+	var appError *utils.ApplicationError
+
+	// Validate body
+	var body delivery.RequestUpdateDelivery
+	err := c.BodyParser(&body)
+	if err != nil {
+		fmt.Println("iknvalid body")
+		return utils.RespondError(c, "UPDATE_FAILED", &utils.ApplicationError{
+			HttpStatus: http.StatusBadRequest,
+			Message:    "bad_request",
+			Error:      err,
+		})
+	}
+	caller := utils.GetCallerDetails(c)
+	body.CreatedByUserType = caller.UserType
+
+	appError = h.service.Update(&body)
+	if appError != nil {
+		return utils.RespondError(c, config.InsertFailed, appError)
+	}
+
+	return utils.Respond(c, config.InsertSuccess, "Successfully created the delivery", nil)
+
+	return nil
 }
 
 func (h *deliveryHandler) Create(c *fiber.Ctx) error {

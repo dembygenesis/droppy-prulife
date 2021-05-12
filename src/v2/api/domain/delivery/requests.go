@@ -21,7 +21,8 @@ type RequestCreateDelivery struct {
 	ItemDescription string `json:"item_description" form:"item_description" db:"item_description"`
 }
 
-// I can even do the validations here... But I'll leave that all in my repository.
-
 type RequestUpdateDelivery struct {
+	DeliveryId     int    `json:"delivery_id" form:"delivery_id" db:"delivery_id" required:"true"`
+	DeliveryStatus string `json:"delivery_status" form:"delivery_status" db:"delivery_status" required:"true"`
+	CreatedByUserType string
 }
