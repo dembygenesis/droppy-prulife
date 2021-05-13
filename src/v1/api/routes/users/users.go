@@ -15,7 +15,7 @@ func BindRoutes(api fiber.Router) {
 	api.Get("/refresh-data", UserMiddleware.RoleMiddlewareV2([]string{"Admin", "Seller", "Dropshipper", "Rider"}), UserController.GetUserInfo)
 
 	// Crud
-	api.Get("/user-type/:type", UserMiddleware.RoleMiddleware("Admin"), UserController.GetAllByType)
+	api.Get("/user-type/:type", UserMiddleware.RoleMiddlewareV2([]string{"Admin", "Dropshipper"}), UserController.GetAllByType)
 	api.Get("/", UserMiddleware.RoleMiddleware("Admin"), UserController.GetAll2)
 	// api.Get("/arsenic", UserMiddleware.RoleMiddleware("Admin"), UserController.GetAll2)
 	api.Delete("/", UserMiddleware.RoleMiddleware("Admin"), UserMiddleware.DeleteMiddleware, UserController.Delete)

@@ -64,6 +64,7 @@ func (h *deliveryHandler) Create(c *fiber.Ctx) error {
 		})
 	}
 	caller := utils.GetCallerDetails(c)
+	body.CreatedById = caller.UserId
 	body.CreatedByUserType = caller.UserType
 
 	// Validate file format to be image

@@ -101,7 +101,7 @@ func (d *deliveryRepository) validateDropshipperId(tx *gorm.DB, p *delivery.Requ
 
 	res := tx.Model(&_user).Select("user_type.name AS user_type").
 		Joins(`INNER JOIN user_type ON user_type.id = user.user_type_id`).
-		Where("user.id = ?", p.DropshipperId).
+		Where("user.id = ?", p.CreatedById).
 		Where("user_type.name = ?", config.UserTypeDropshipper).
 		First(&_user).Error
 
@@ -467,7 +467,7 @@ func (d *deliveryRepository) createDelivery(tx *gorm.DB, p *delivery.RequestCrea
 		"delivery_option_id": deliveryOptionId,
 		"delivery_status_id": deliveryStatusId,
 		"seller_id":          p.SellerId,
-		"dropshipper_id":     p.DropshipperId,
+		"dropshipper_id":     p.CreatedById,
 		"contact_number":     p.ContactNumber,
 		"note":               p.Note,
 		"image_url":          p.ImageUrl,

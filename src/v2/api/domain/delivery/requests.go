@@ -1,6 +1,7 @@
 package delivery
 
 type RequestCreateDelivery struct {
+	CreatedById       int
 	CreatedByUserType string
 	DeliveryOption    string  `json:"delivery_option" form:"delivery_option" db:"delivery_option"`
 	SellerId          int     `json:"seller_id" form:"seller_id" db:"seller_id"`
