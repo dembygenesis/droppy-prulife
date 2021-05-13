@@ -401,6 +401,10 @@ func (d *Delivery) Create(p *ParamsCreateDelivery, f *multipart.FileHeader, user
 		return err
 	}
 
+
+	// MARKER
+	// This is the formula for adding a new entry
+
 	// Debit
 	adminFee := int(serviceFee) - dropshipperFee
 

@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type DeliveryRepository interface {
@@ -30,6 +31,13 @@ type deliveryRepository struct {
 }
 
 var db *gorm.DB
+
+
+type BalanceCheck struct {
+	CoinAmount float64
+	ServiceFee float64
+	SellerId   int
+}
 
 func init() {
 	// Parse ENV
@@ -75,7 +83,7 @@ func (d *deliveryRepository) validateSellerId(tx *gorm.DB, p *delivery.RequestCr
 		First(&_user).Error
 
 	if errors.Is(res, gorm.ErrRecordNotFound) {
-		return errors.New("seller_id not found")
+		return errors.New("seller_id not found huhuhu")
 	}
 	if res != nil {
 		return errors.New("error validating the seller_id: " + res.Error())
@@ -223,14 +231,9 @@ func (d *deliveryRepository) validateDeliveryStatusLogic(tx *gorm.DB, p *deliver
 	}
 
 	// Logic: Pending Approval
-	if currentDeliveryStatus == config.DeliveryStatusVoided {
-		return nil
-	}
-
-	// Logic: Pending Approval
 	if currentDeliveryStatus == config.DeliveryStatusPendingApproval {
 		if p.DeliveryStatus != config.DeliveryStatusProposed {
-			return errors.New("Pending Approval can only progress to 'Proposed' or 'Voided'")
+			return errors.New("Pending Approval can only progress to 'Proposed'")
 		}
 	}
 
@@ -278,7 +281,7 @@ func (d *deliveryRepository) validateDeliveryStatus(tx *gorm.DB, p *delivery.Req
 func (d *deliveryRepository) validateDeliveryId(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
 	var count int
 
-	err := tx.Raw("SELECT COUNT(*) FROM delivery WHERE id = ?", p.DeliveryId).Scan(&count).Error
+	err := tx.Raw("SELECT COUNT(*) FROM delivery WHERE id = ? AND is_active = 1", p.DeliveryId).Scan(&count).Error
 	if err != nil {
 		return err
 	}
@@ -305,11 +308,6 @@ func (d *deliveryRepository) validatePolicyNumber(tx *gorm.DB, p *delivery.Reque
 
 func (d *deliveryRepository) updateValidations(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
 	var err error
-
-	// Validate: User Type
-	if p.CreatedByUserType != config.UserTypeDropshipper {
-		return errors.New("dropshippers are the only one's that can create a new policy")
-	}
 
 	// Validate: Delivery ID
 	err = d.validateDeliveryId(tx, p)
@@ -366,6 +364,43 @@ func (d *deliveryRepository) createValidations(tx *gorm.DB, p *delivery.RequestC
 
 	// Validate: Policy Number
 	err = d.validatePolicyNumber(tx, p)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// createDeliveryTracking - inserts a new entry to the delivery tracking table
+func (d *deliveryRepository) createDeliveryTracking(
+	tx *gorm.DB,
+	deliveryId int,
+	deliveryStatusId int,
+	updatedBy int,
+) error {
+	var err error
+
+	sql := `
+		INSERT INTO delivery_tracking (
+			delivery_id, 
+			delivery_status_id, 
+			last_updated, 
+			updated_by
+		)
+		VALUES (
+		   ?,
+		   ?,
+		   NOW(),
+		   ?
+	   );
+	`
+
+	err = tx.Exec(
+		sql,
+		deliveryId,
+		deliveryStatusId,
+		updatedBy,
+	).Error
 	if err != nil {
 		return err
 	}
@@ -439,7 +474,25 @@ func (d *deliveryRepository) createDelivery(tx *gorm.DB, p *delivery.RequestCrea
 		"item_description":   p.ItemDescription,
 		"policy_number":      p.PolicyNumber,
 	}
-	return tx.Model(&delivery.Delivery{}).Create(_delivery).Error
+	err = tx.Model(&delivery.Delivery{}).Create(_delivery).Error
+	if err != nil {
+		return nil
+	}
+
+	// Add to delivery tracking
+	newDeliveryId, err := database.GetLastInsertIDGorm(tx)
+	if err != nil {return err}
+
+	err = d.createDeliveryTracking(
+		tx,
+		newDeliveryId,
+		deliveryStatusId,
+		p.SellerId,
+	)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (d *deliveryRepository) uploadToS3AndSync(
@@ -523,29 +576,366 @@ func (d *deliveryRepository) updateDeliveryItemStatus(tx *gorm.DB, p *delivery.R
 	return tx.Exec(sqlUpdateDeliveryImageUrl, deliveryStatusId, p.DeliveryId).Error
 }
 
+func (d *deliveryRepository) updateCoinTotals(tx *gorm.DB, adminId int, userId int, amount float64) error {
+	// Check if user total exists
+	var err error
+	var totalsCount int
+	sqlTotalsExists := `SELECT COUNT(id) FROM user_total WHERE user_id = ?`
+
+	err = tx.Raw(sqlTotalsExists, userId).Scan(&totalsCount).Error
+	if err != nil {
+		return errors.New("something went wrong when trying to get the user totals: " + err.Error())
+	}
+
+	if totalsCount == 0 {
+		// Insert existing record
+		sql := `
+			INSERT INTO user_total (user_id, amount, coin_amount, created_by, last_updated)
+			VALUES (
+				   ?,
+				   0,
+				   ?,
+				   ?,
+				   NOW()
+			);
+		`
+		return tx.Exec(sql, userId, amount, adminId).Error
+	} else {
+		// Update totals
+		sql := `
+			UPDATE user_total
+			SET coin_amount = coin_amount + ?
+			WHERE user_id = ?
+		`
+		return tx.Exec(sql, amount, userId).Error
+	}
+}
+
+// addCoinTransaction - inserts a coin transaction entry
+func (d *deliveryRepository) addCoinTransaction(tx *gorm.DB, adminAccount int, userId int, creditType string, amount float64, deliveryId int) error {
+	sql := `
+		INSERT INTO coin_transaction (created_by, created_date, is_active, user_id, type, amount, delivery_id)
+		VALUES (?, NOW(), 1, ?, ?, ?, ?);  
+	`
+	err := tx.Exec(sql, adminAccount, userId, creditType, amount, deliveryId).Error
+	if err != nil {
+		return errors.New("error adding a new coin transaction: " + err.Error())
+	}
+	return nil
+}
+
+func (d *deliveryRepository) getBalanceCheck(tx *gorm.DB, p *delivery.RequestUpdateDelivery) (*BalanceCheck, error) {
+	// Validate balance
+	var balanceCheck BalanceCheck
+
+	err := tx.Raw(`
+		SELECT 
+			IF(ub.coin_amount IS NULL, 0, ub.coin_amount) AS coin_amount,
+			d.service_fee,
+			d.seller_id
+		FROM user_total ub
+		RIGHT JOIN delivery d
+			ON 1 = 1
+				AND ub.user_id = d.seller_id
+		WHERE 1 = 1
+			AND d.id = ?
+	`, p.DeliveryId).Scan(&balanceCheck).Error
+
+	if err != nil {
+		return &balanceCheck, errors.New("errors trying to fetch the user total balance via delivery id: " + err.Error())
+	} else {
+		fmt.Println("deliverySellerBalance deliverySellerBalance deliverySellerBalance", balanceCheck)
+	}
+
+	if balanceCheck.ServiceFee > balanceCheck.CoinAmount {
+		return &balanceCheck, errors.New("insufficient service_fee")
+	}
+	return &balanceCheck, nil
+}
+
+// handlePendingApprovalToProposed - handles 'Pending Approval' to 'Proposed' delivery status transition
+func (d *deliveryRepository) handlePendingApprovalToProposed(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
+	balanceCheck, err := d.getBalanceCheck(tx, p)
+
+	if err != nil {
+		return err
+	}
+	if balanceCheck.ServiceFee > balanceCheck.CoinAmount {
+		return errors.New("insufficient service_fee")
+	}
+
+	// Add credit to coin transaction to admin
+	var adminId int
+	err = tx.Raw(`
+		SELECT 
+			u.id
+		FROM ` + utils.EncloseString("user", "`") + ` u
+		WHERE 1 = 1
+			AND u.email = (
+				SELECT
+					` + utils.EncloseString("value", "`") + `	
+				FROM sysparam
+				WHERE 1 = 1
+					AND ` + utils.EncloseString("key", "`") + ` = "HANDLER_ADMIN"
+			)
+	`).Scan(&adminId).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return errors.New("HANDLER_ADMIN not found")
+	}
+	if err != nil {
+		return errors.New("error trying to fetch the HANDLER_ADMIN")
+	}
+
+	// Add seller coin transaction
+	err = d.addCoinTransaction(
+		tx,
+		adminId,
+		balanceCheck.SellerId,
+		"D",
+		balanceCheck.ServiceFee,
+		p.DeliveryId,
+	)
+	if err != nil {
+		return errors.New("error adding a new coin transaction for the seller: " + err.Error())
+	}
+
+	// Add admin coin transaction
+	err = d.addCoinTransaction(
+		tx,
+		adminId,
+		adminId,
+		"D",
+		balanceCheck.ServiceFee,
+		p.DeliveryId,
+	)
+	if err != nil {
+		return errors.New("error adding a new coin transaction for the admin: " + err.Error())
+	}
+
+	// Update totals seller
+	err = d.updateCoinTotals(tx, adminId, balanceCheck.SellerId, balanceCheck.ServiceFee * -1)
+	if err != nil {
+		return errors.New("error updating coin transaction for seller: " + err.Error())
+	}
+
+	// Update totals admin
+	err = d.updateCoinTotals(tx, adminId, adminId, balanceCheck.ServiceFee)
+	if err != nil {
+		return errors.New("error updating coin transaction for seller: " + err.Error())
+	}
+
+	return nil
+}
+
+// getAdminId - fetches the admin id set in the config
+func (d *deliveryRepository) getAdminId(tx *gorm.DB) (int, error) {
+	var adminId int
+
+	err := tx.Raw(`
+		SELECT
+			u.id
+		FROM sysparam s 
+		INNER JOIN user u 
+			 ON 1 = 1
+				AND s.value = u.email
+		WHERE 1 = 1
+			AND ` + utils.EncloseString("key", "`") + ` = "HANDLER_ADMIN"
+	`).Scan(&adminId).Error
+
+	if err != nil {
+		return adminId, errors.New("error fetching the admin id: " + err.Error())
+	}
+
+	return adminId, nil
+}
+
+// handleProposedToRejected - returns the money to the seller
+func (d *deliveryRepository) handleProposedToRejected(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
+	// Get balances
+	balanceCheck, err := d.getBalanceCheck(tx, p)
+	if err != nil {
+		return nil
+	}
+
+	// Fetch admin id
+	adminId, err := d.getAdminId(tx)
+	if err != nil {
+		return err
+	}
+
+	// Add coins back in seller
+	err = d.updateCoinTotals(tx, adminId, balanceCheck.SellerId, balanceCheck.ServiceFee)
+	if err != nil {
+		return errors.New("error updating coin transaction for seller: " + err.Error())
+	}
+
+	// Remove coins from admin
+	err = d.updateCoinTotals(tx, adminId, adminId, balanceCheck.ServiceFee * -1)
+	if err != nil {
+		return errors.New("error updating coin transaction for admin: " + err.Error())
+	}
+
+	return nil
+}
+
+// voidDelivery - void the delivery and returns the coins where applicable
+func (d *deliveryRepository) voidDelivery(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
+	var err error
+
+	// Fetch delivery meta
+	currentDeliveryStatus, err := d.getDeliveryStatusName(tx, p.DeliveryId)
+	if err != nil {
+		return errors.New("error trying to fetch the current delivery status name: " + err.Error())
+	}
+
+	// Ensure reason is present (void_or_reject_reason)
+	p.VoidOrRejectReason = strings.TrimSpace(p.VoidOrRejectReason)
+	if p.VoidOrRejectReason == "" {
+		return errors.New("void_or_reject_reason is empty")
+	}
+
+	// Void delivery
+	err = tx.Exec("UPDATE delivery SET is_active = 0 WHERE id = ?", p.DeliveryId).Error
+	if err != nil {
+		return errors.New("error voiding the delivery_id: " + err.Error())
+	}
+
+	// Void coin transactions
+	err = tx.Exec("UPDATE coin_transaction SET is_active = 0 WHERE delivery_id = ?", p.DeliveryId).Error
+	if err != nil {
+		return errors.New("error voiding the delivery_id: " + err.Error())
+	}
+
+	// Update totals if not 'Rejected', and not 'Pending Approval'
+	if currentDeliveryStatus != config.DeliveryStatusRejected &&
+		currentDeliveryStatus != config.DeliveryStatusPendingApproval {
+		balanceCheck, err := d.getBalanceCheck(tx, p)
+		if err != nil {
+			return err
+		}
+
+		// Update balance seller (increase, receive service fee)
+		err = d.updateCoinTotals(tx, balanceCheck.SellerId, balanceCheck.SellerId, balanceCheck.ServiceFee)
+		if err != nil {
+			return errors.New("error updating coin transaction for seller: " + err.Error())
+		}
+
+		// Update balance admin (decrease, return service fee)
+		adminId, err := d.getAdminId(tx)
+		if err != nil {
+			return err
+		}
+
+		err = d.updateCoinTotals(tx, adminId, adminId, balanceCheck.ServiceFee * -1)
+		if err != nil {
+			return errors.New("error updating coin transaction for seller: " + err.Error())
+		}
+	}
+
+	return nil
+}
+
 func (d *deliveryRepository) updateDelivery(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
 	var err error
 
 	// TODO: Different transition scenarios here
+	currentDeliveryStatus, err := d.getDeliveryStatusName(tx, p.DeliveryId)
+	if err != nil {
+		return errors.New("error trying to fetch the current delivery status name: " + err.Error())
+	}
 
+	// If action is void...
+	if p.DeliveryStatus == config.DeliveryStatusVoided {
+		if p.CreatedByUserType != config.UserTypeAdmin {
+			return errors.New(`only admins can update '` + currentDeliveryStatus + `' to 'Voided'`)
+		}
+
+		err = d.voidDelivery(tx, p)
+		if err != nil {
+			 return err
+		}
+	} else {
+		if currentDeliveryStatus == config.DeliveryStatusPendingApproval &&
+			p.DeliveryStatus == config.DeliveryStatusProposed {
+			// 'Pending Approval' -> 'Proposed'
+
+			// Accessible only to sellers
+			if p.CreatedByUserType != config.UserTypeSeller {
+				return errors.New("only sellers can update 'Pending Approval' to 'Proposed'")
+			} else {
+				err = d.handlePendingApprovalToProposed(tx, p)
+				if err != nil {
+					return err
+				}
+			}
+		} else if currentDeliveryStatus == config.DeliveryStatusProposed &&
+			p.DeliveryStatus == config.DeliveryStatusAccepted {
+			// 'Proposed' -> 'Accepted' (just update the status)
+
+			// Accessible only to dropshippers
+			if p.CreatedByUserType != config.UserTypeDropshipper {
+				return errors.New("only dropshippers can update 'Proposed' to 'Accepted'")
+			}
+		} else if currentDeliveryStatus == config.DeliveryStatusProposed &&
+			p.DeliveryStatus == config.DeliveryStatusRejected {
+			// 'Proposed' -> 'Rejected' (return the money)
+
+			// Accessible only to dropshippers
+			if p.CreatedByUserType != config.UserTypeDropshipper {
+				return errors.New("only dropshippers can update 'Proposed' to 'Rejected'")
+			}
+			err = d.handleProposedToRejected(tx, p)
+			if err != nil {
+				return err
+			}
+		} else if currentDeliveryStatus == config.DeliveryStatusAccepted &&
+			p.DeliveryStatus == config.DeliveryStatusFulfilled {
+			// 'Accepted' -> 'Fulfilled' (just update the status)
+
+			// Accessible only to dropshippers
+			if p.CreatedByUserType != config.UserTypeDropshipper {
+				return errors.New("only dropshippers can update 'Accepted' to 'Fulfilled'")
+			}
+		} else if currentDeliveryStatus == config.DeliveryStatusFulfilled &&
+			p.DeliveryStatus == config.DeliveryStatusDelivered {
+			// 'Fulfilled' -> 'Delivered' (just update the status)
+
+			// Accessible only to admins
+			if p.CreatedByUserType != config.UserTypeDropshipper {
+				return errors.New("only admins can update 'Fulfilled' to 'Delivered'")
+			}
+		} else if currentDeliveryStatus == config.DeliveryStatusFulfilled &&
+			p.DeliveryStatus == config.DeliveryStatusReturned {
+			// 'Fulfilled' -> 'Returned' (just update the status)
+
+			// Accessible only to admins
+			if p.CreatedByUserType != config.UserTypeDropshipper {
+				return errors.New("only admins can update 'Fulfilled' to 'Returned'")
+			}
+		}
+	}
 
 	// Update delivery item status
 	err = d.updateDeliveryItemStatus(tx, p)
+	if err != nil {
+		return err
+	} else {
+		fmt.Println("No error for updateDeliveryItemStatus")
+	}
 
-	return err
+	return nil
 }
 
 func (d *deliveryRepository) Update(p *delivery.RequestUpdateDelivery) *utils.ApplicationError {
 	var err error
 
 	err = db.Transaction(func(tx *gorm.DB) error {
-		// Validate
 		err = d.updateValidations(tx, p)
 		if err != nil {
 			return err
 		}
 
-		// Update
 		err = d.updateDelivery(tx, p)
 		if err != nil {
 			return err

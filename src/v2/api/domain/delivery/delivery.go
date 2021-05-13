@@ -10,8 +10,8 @@ type IDelivery interface {
 // This method must have a repository service that implements validate.
 // But don't get confused, they don't have to be equl
 type Delivery struct {
-	Id int
-	service domain.DeliveryDomainRepository
+	Id       int
+	service  domain.DeliveryDomainRepository
 }
 
 var (
@@ -27,7 +27,6 @@ func NewDelivery(i int) IDelivery {
 
 	return delivery
 }
-
 
 func (d *Delivery) Validate(i int) bool {
 	return d.service.Validate(i)

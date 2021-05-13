@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/config"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/domain/delivery"
 	"github.com/dembygenesis/droppy-prulife/src/v2/api/services"
@@ -32,7 +31,6 @@ func (h *deliveryHandler) Update(c *fiber.Ctx) error {
 	var body delivery.RequestUpdateDelivery
 	err := c.BodyParser(&body)
 	if err != nil {
-		fmt.Println("iknvalid body")
 		return utils.RespondError(c, "UPDATE_FAILED", &utils.ApplicationError{
 			HttpStatus: http.StatusBadRequest,
 			Message:    "bad_request",
@@ -47,7 +45,7 @@ func (h *deliveryHandler) Update(c *fiber.Ctx) error {
 		return utils.RespondError(c, config.InsertFailed, appError)
 	}
 
-	return utils.Respond(c, config.InsertSuccess, "Successfully created the delivery", nil)
+	return utils.Respond(c, config.UpdateSuccess, "Successfully created the delivery", nil)
 
 	return nil
 }
@@ -66,7 +64,6 @@ func (h *deliveryHandler) Create(c *fiber.Ctx) error {
 		})
 	}
 	caller := utils.GetCallerDetails(c)
-	body.SellerId = caller.UserId
 	body.CreatedByUserType = caller.UserType
 
 	// Validate file format to be image

@@ -66,20 +66,16 @@ func (r *Response) SetErrors(i interface{}) {
 	var errors []string
 	errType := reflect.TypeOf(i).String()
 
-	if errType == "*errors.errorString" {
-		errors = append(errors, i.(error).Error())
-	} else if errType == "[]string" {
+	if errType == "[]string" {
 		errors = i.([]string)
 	} else if errType == "string" {
 		errors = append(errors, i.(string))
-	} else if errType == "*json.UnmarshalTypeError" {
-		errors = append(errors, i.(error).Error())
 	} else {
-		panic("!! Unidentified error type: " + errType)
+		errors = append(errors, i.(error).Error())
 	}
 
 	r.Data = struct {
-		Errors interface{} `json:"errors"`
+		Errors []string `json:"errors"`
 	}{
 		Errors: errors,
 	}

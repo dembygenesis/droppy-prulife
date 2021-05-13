@@ -29,7 +29,6 @@ func (d *Delivery) GetDetails() {
 }
 
 func (d *Delivery) CreateParcel(p ParamsCreateParcel) (sql.Result, error) {
-
 	sql := `
 		CALL add_delivery(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
