@@ -24,6 +24,6 @@ type RequestCreateDelivery struct {
 type RequestUpdateDelivery struct {
 	DeliveryId         int    `json:"delivery_id" form:"delivery_id" db:"delivery_id" required:"true"`
 	DeliveryStatus     string `json:"delivery_status" form:"delivery_status" db:"delivery_status" required:"true"`
-	VoidOrRejectReason string `json:"void_and_reject_reason" form:"void_and_reject_reason" db:"void_and_reject_reason" required:"false"`
+	VoidOrRejectReason string `json:"void_or_reject_reason" form:"void_or_reject_reason" db:"void_or_reject_reason" required:"false"`
 	CreatedByUserType  string
 }

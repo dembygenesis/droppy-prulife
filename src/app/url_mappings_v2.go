@@ -17,5 +17,5 @@ func mapUrlsV2(app *fiber.App) {
 	api := app.Group("/api/v2", cors.New(), logger.New())
 
 	api.Post("/delivery", UserMiddleware.RoleMiddlewareV2([]string{"Dropshipper", "Seller"}), deliveryHandler.Create)
-	api.Put("/delivery", UserMiddleware.RoleMiddlewareV2([]string{"Dropshipper", "Seller"}), deliveryHandler.Update)
+	api.Put("/delivery", UserMiddleware.RoleMiddlewareV2([]string{"Dropshipper", "Seller", "Admin"}), deliveryHandler.Update)
 }
