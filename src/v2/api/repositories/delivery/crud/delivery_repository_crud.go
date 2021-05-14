@@ -32,7 +32,6 @@ type deliveryRepository struct {
 
 var db *gorm.DB
 
-
 type BalanceCheck struct {
 	CoinAmount float64
 	ServiceFee float64
@@ -481,7 +480,9 @@ func (d *deliveryRepository) createDelivery(tx *gorm.DB, p *delivery.RequestCrea
 
 	// Add to delivery tracking
 	newDeliveryId, err := database.GetLastInsertIDGorm(tx)
-	if err != nil {return err}
+	if err != nil {
+		return err
+	}
 
 	err = d.createDeliveryTracking(
 		tx,
@@ -714,7 +715,7 @@ func (d *deliveryRepository) handlePendingApprovalToProposed(tx *gorm.DB, p *del
 	}
 
 	// Update totals seller
-	err = d.updateCoinTotals(tx, adminId, balanceCheck.SellerId, balanceCheck.ServiceFee * -1)
+	err = d.updateCoinTotals(tx, adminId, balanceCheck.SellerId, balanceCheck.ServiceFee*-1)
 	if err != nil {
 		return errors.New("error updating coin transaction for seller: " + err.Error())
 	}
@@ -723,6 +724,55 @@ func (d *deliveryRepository) handlePendingApprovalToProposed(tx *gorm.DB, p *del
 	err = d.updateCoinTotals(tx, adminId, adminId, balanceCheck.ServiceFee)
 	if err != nil {
 		return errors.New("error updating coin transaction for seller: " + err.Error())
+	}
+
+	// Also, update information of depending
+	/**
+	PolicyNumber
+	Name
+	ContactNo
+	Note
+	Address
+	Description
+	*/
+
+	hasLastMinuteUpdates := false
+
+	if p.PolicyNumber != "" {
+		hasLastMinuteUpdates = true
+	}
+	if p.Name != "" {
+		hasLastMinuteUpdates = true
+	}
+	if p.ContactNo != "" {
+		hasLastMinuteUpdates = true
+	}
+	if p.Note != "" {
+		hasLastMinuteUpdates = true
+	}
+	if p.Address != "" {
+		hasLastMinuteUpdates = true
+	}
+	if p.ItemDescription != "" {
+		hasLastMinuteUpdates = true
+	}
+
+	if hasLastMinuteUpdates {
+		// Do update
+		sqlLastMinuteUpdate := `
+			UPDATE delivery
+				SET policy_number    = ` + utils.GetSQLValue("policy_number", p.PolicyNumber) + `,
+					name             = ` + utils.GetSQLValue("name", p.Name) + `,
+					contact_number   = ` + utils.GetSQLValue("contact_number", p.ContactNo) + `,
+					note             = ` + utils.GetSQLValue("note", p.Note) + `,
+					address          = ` + utils.GetSQLValue("address", p.Address) + `,
+					item_description = ` + utils.GetSQLValue("item_description", p.ItemDescription) + `
+			WHERE id = ?
+		`
+		err = tx.Exec(sqlLastMinuteUpdate, p.DeliveryId).Error
+		if err != nil {
+			return errors.New("error executing last minute updates before moving delivery to 'Proposed': " + err.Error())
+		}
 	}
 
 	return nil
@@ -771,7 +821,7 @@ func (d *deliveryRepository) handleProposedToRejected(tx *gorm.DB, p *delivery.R
 	}
 
 	// Remove coins from admin
-	err = d.updateCoinTotals(tx, adminId, adminId, balanceCheck.ServiceFee * -1)
+	err = d.updateCoinTotals(tx, adminId, adminId, balanceCheck.ServiceFee*-1)
 	if err != nil {
 		return errors.New("error updating coin transaction for admin: " + err.Error())
 	}
@@ -827,7 +877,7 @@ func (d *deliveryRepository) voidDelivery(tx *gorm.DB, p *delivery.RequestUpdate
 			return err
 		}
 
-		err = d.updateCoinTotals(tx, adminId, adminId, balanceCheck.ServiceFee * -1)
+		err = d.updateCoinTotals(tx, adminId, adminId, balanceCheck.ServiceFee*-1)
 		if err != nil {
 			return errors.New("error updating coin transaction for seller: " + err.Error())
 		}
@@ -852,7 +902,7 @@ func (d *deliveryRepository) updateDelivery(tx *gorm.DB, p *delivery.RequestUpda
 
 		err = d.voidDelivery(tx, p)
 		if err != nil {
-			 return err
+			return err
 		}
 	} else {
 		if currentDeliveryStatus == config.DeliveryStatusPendingApproval &&

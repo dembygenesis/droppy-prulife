@@ -27,4 +27,12 @@ type RequestUpdateDelivery struct {
 	DeliveryStatus     string `json:"delivery_status" form:"delivery_status" db:"delivery_status" required:"true"`
 	VoidOrRejectReason string `json:"void_or_reject_reason" form:"void_or_reject_reason" db:"void_or_reject_reason" required:"false"`
 	CreatedByUserType  string
+
+	// Edit fields
+	PolicyNumber    string `json:"policy_number" form:"policy_number" db:"policy_number" required:"false"`
+	Name            string `json:"name" form:"name" db:"name" required:"false"`
+	ContactNo       string `json:"contact_no" form:"contact_no" db:"contact_no" required:"false"`
+	Note            string `json:"note" form:"note" db:"note" required:"false"`
+	Address         string `json:"address" form:"address" db:"address" required:"false"`
+	ItemDescription string `json:"item_description" form:"item_description" db:"item_description" required:"false"`
 }

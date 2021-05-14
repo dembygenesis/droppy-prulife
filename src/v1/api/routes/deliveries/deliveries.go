@@ -18,7 +18,6 @@ func BindRoutes(api fiber.Router) {
 	api.Get("/coin-transactions2", UserMiddleware.RoleMiddlewareV2([]string{"Dropshipper", "Seller"}), DeliveriesController.CoinTransactions2)
 	api.Post("/order-package", UserMiddleware.RoleMiddlewareV2([]string{"Dropshipper", "Seller"}), DeliveriesController.OrderPackage)
 
-
 	// Backup
 	// api.Post("/order-parcel", UserMiddleware.RoleMiddlewareV2([]string{"Dropshipper", "Seller"}), DeliveriesController.OrderParcel)
 

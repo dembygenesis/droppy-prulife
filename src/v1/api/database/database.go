@@ -54,11 +54,7 @@ func GetPaginationDetails(
 	pageEnd := pageLimit
 	totalPages := int(math.Ceil(float64(count) / float64(rowLimit)))
 
-	fmt.Println("totalPages above", totalPages)
-	fmt.Println("math.Ceil(float64(count)) / float64(rowLimit) 1", math.Ceil(1.43))
-	fmt.Println("math.Ceil(float64(count)) / float64(rowLimit) 2", float64(count) / float64(rowLimit))
-
-	if page > totalPages {
+	if page > totalPages || totalPages == 1 {
 		page = 0
 	}
 
@@ -74,21 +70,17 @@ func GetPaginationDetails(
 
 	if count != 0 {
 		if page == 0 {
-			fmt.Println("cASe 1")
 			offset = 0
 		} else if totalPages == 0 {
-			fmt.Println("cASe 2")
 			offset = 0
 		} else {
 			if page >= totalPages {
 				offset = 0
 			} else {
-				fmt.Println("Does not Exceed total number of pages", "page", page, "totalPages", totalPages)
 				offset = page * rowLimit
 			}
 		}
 	} else {
-		fmt.Println("On else")
 		offset = 0
 	}
 
@@ -116,17 +108,9 @@ func GetPaginationDetails(
 	sql = strings.Replace(sql, "replace_limit", strconv.Itoa(rowsPerPage), -1)
 	sql = strings.Replace(sql, "replace_offset", strconv.Itoa(offset), -1)
 
-	fmt.Println("pages", len(pages))
-
 	if len(pages) == 0 {
 		pages = append(pages, 0)
 	}
-
-	fmt.Println("rowsPerPage, offset, page, count", rowsPerPage, offset, page, count)
-	fmt.Println("totalPages", totalPages)
-	fmt.Println("count", count)
-	fmt.Println("rowLimit", rowLimit)
-	fmt.Println("page", page)
 
 	// Handle result count
 	resultCount := 0
@@ -135,7 +119,6 @@ func GetPaginationDetails(
 	hasNextPage := false
 
 	for _, ele := range pages {
-		fmt.Println("ele", ele, "page", page)
 		if ele > page {
 			hasNextPage = true
 			break

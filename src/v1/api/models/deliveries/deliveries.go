@@ -349,7 +349,10 @@ func (d *Delivery) GetTransactions(
 	page int,
 	rows int,
 ) (*[]ResponseTransactions, response_builder.Pagination, error) {
-	var container []ResponseTransactions
+	// var container []ResponseTransactions
+
+	container := make([]ResponseTransactions, 0)
+
 	var pagination response_builder.Pagination
 
 	var sqlUserFilter string
@@ -472,43 +475,35 @@ func (d *Delivery) GetTransactions(
 	// SELLER
 	if userType == "Seller" {
 		// Do nothing for now lol
+		sqlUserFilter = "u.id = " + strconv.Itoa(userId)
+
 		sql = `
 			SELECT 
-			  date_created,
-			  recipient,
-			  transaction_number,
-			  CAST(amount AS DECIMAL(65,2)) AS amount,
-			  tracking_number,
-			  ` + "`type`" + `,  
-			  ` + "`status`" + `,
-			  delivery_payment_method 
-			FROM (
-				(
-					SELECT 
-     				  d.created_date,
-					  IF(DATE_FORMAT(CONVERT_TZ(d.created_date,'+00:00','+08:00'), '%Y-%m-%d %h:%i %p') IS NULL, "", DATE_FORMAT(CONVERT_TZ(d.created_date,'+00:00','+08:00'), '%Y-%m-%d %h:%i %p')) AS date_created,
-					  d.name AS recipient,
-					  d.id AS transaction_number,
-					  d.declared_amount AS amount,
-					  IF(d.tracking_number IS NULL, "", d.tracking_number) AS tracking_number,
-					  do.name AS type,
-					  ds.name AS status,
-					  dpm.name AS delivery_payment_method
-					FROM delivery d
-					INNER JOIN delivery_status ds 
-					  ON 1 = 1
-						AND d.delivery_status_id = ds.id 
-					INNER JOIN delivery_option do
-					  ON 1 = 1 
-						AND d.delivery_option_id = do.id
-				    INNER JOIN delivery_payment_method dpm
-					  ON 1 = 1
-						AND d.delivery_payment_method_id = dpm.id
-					WHERE 1 = 1
-					 AND d.seller_id = ?
-				)
-			) AS a
-			ORDER BY created_date DESC
+			  IF(DATE_FORMAT(CONVERT_TZ(d.created_date,'+00:00','+08:00'), '%Y-%m-%d %h:%i %p') IS NULL, "", DATE_FORMAT(CONVERT_TZ(d.created_date,'+00:00','+08:00'), '%Y-%m-%d %h:%i %p')) AS date_created,
+			  d.name AS recipient,
+			  d.id AS transaction_number,
+			  0 AS amount,
+			  IF(d.tracking_number IS NULL, "", d.tracking_number) AS tracking_number,
+			  do.name AS type,
+			  ds.name AS status,
+			  "" AS delivery_payment_method,
+			  CONCAT(u.lastname, ', ', u.firstname) AS seller,
+			  d.policy_number,
+			  d.service_fee,
+			  d.seller_id
+			FROM delivery d
+			INNER JOIN delivery_status ds 
+			  ON 1 = 1
+				AND d.delivery_status_id = ds.id 
+			INNER JOIN delivery_option do
+			  ON 1 = 1 
+				AND d.delivery_option_id = do.id
+			INNER JOIN user u  
+			  ON 1 = 1
+				AND u.id = d.seller_id
+			WHERE 1 = 1
+			 AND ` + sqlUserFilter + `
+			ORDER BY d.created_date DESC
 		`
 	}
 
@@ -584,6 +579,8 @@ func (d *Delivery) GetTransactions(
 		} else {
 			if userType == "Rider" {
 				count, err = database.GetQueryCount(sql, deliveryStatus, res[0].RegionId)
+			} else if userType == "Seller" {
+				count, err = database.GetQueryCount(sql)
 			} else {
 				count, err = database.GetQueryCount(sql, userId)
 			}
@@ -611,11 +608,15 @@ func (d *Delivery) GetTransactions(
 
 		// Perform query
 		if userType == "Admin" {
+			fmt.Println("hkejhlkejhlekj")
 			err = database.DBInstancePublic.Select(&container, sql)
 		} else {
-
+			fmt.Println("hkejhlkejhlekj")
 			if userType == "Rider" {
 				err = database.DBInstancePublic.Select(&container, sql, deliveryStatus, res[0].RegionId)
+			} else if userType == "Seller" {
+				fmt.Println("hkejhlkejhlekj")
+				err = database.DBInstancePublic.Select(&container, sql)
 			} else {
 				err = database.DBInstancePublic.Select(&container, sql, userId)
 			}
