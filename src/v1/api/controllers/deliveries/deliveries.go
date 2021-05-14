@@ -683,12 +683,18 @@ func Transactions(c *fiber.Ctx) error {
 	/**
 		Search
 	*/
-	var search string
+	var search DeliveryModel.SearchTransactionFilter
+	// MARKER
 
-	if c.Query("search") == "" {
-		search = ""
-	} else {
-		search = c.Query("search")
+	err := search.Populate(c)
+	if err != nil {
+		r := response_builder.Response{
+			HttpCode:        200,
+			ResponseMessage: "Failed to populate the search transaction filter",
+		}
+		r.AddErrors(err.Error())
+
+		return c.JSON(r)
 	}
 
 	deliveryStatus := c.Query("delivery_status")

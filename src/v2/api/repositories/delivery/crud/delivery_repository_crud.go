@@ -839,7 +839,6 @@ func (d *deliveryRepository) voidDelivery(tx *gorm.DB, p *delivery.RequestUpdate
 func (d *deliveryRepository) updateDelivery(tx *gorm.DB, p *delivery.RequestUpdateDelivery) error {
 	var err error
 
-	// TODO: Different transition scenarios here
 	currentDeliveryStatus, err := d.getDeliveryStatusName(tx, p.DeliveryId)
 	if err != nil {
 		return errors.New("error trying to fetch the current delivery status name: " + err.Error())

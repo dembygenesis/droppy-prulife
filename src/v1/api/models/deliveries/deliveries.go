@@ -7,6 +7,7 @@ import (
 	"github.com/dembygenesis/droppy-prulife/src/v1/api/database"
 	UserModel "github.com/dembygenesis/droppy-prulife/src/v1/api/models/users"
 	"github.com/dembygenesis/droppy-prulife/utilities/response_builder"
+	"strconv"
 )
 
 func (d *Delivery) UpdateDelivery(p ParamsUpdateDelivery) (sql.Result, error) {
@@ -344,23 +345,32 @@ func (d *Delivery) GetTransactions(
 	userId int,
 	userType string,
 	deliveryStatus string,
-	search string,
+	search SearchTransactionFilter,
 	page int,
 	rows int,
 ) (*[]ResponseTransactions, response_builder.Pagination, error) {
 	var container []ResponseTransactions
 	var pagination response_builder.Pagination
 
+	var sqlUserFilter string
+	var sqlTranNumFilter string
+
 	// Handle admin search filters
-	adminDeliverySearchFilters := "1 = 1"
-	adminOrderSearchFilters := "1 = 1"
+	userFilter := search.UserId
+	tranNumFilter := search.TranNum
 
 	sql := ""
 
-	if search != "" {
-		// adminSearchFilters = "d.id = " + search
-		adminDeliverySearchFilters = "d.id = " + search
-		adminOrderSearchFilters = "o.id = " + search
+	if userFilter != 0 {
+		sqlUserFilter = "u.id = " + strconv.Itoa(userFilter)
+	} else {
+		sqlUserFilter = "1 = 1"
+	}
+
+	if tranNumFilter != 0 {
+		sqlTranNumFilter = "d.id = " + strconv.Itoa(tranNumFilter)
+	} else {
+		sqlTranNumFilter = "1 = 1"
 	}
 
 	// ADMINS
@@ -415,38 +425,7 @@ func (d *Delivery) GetTransactions(
 						AND d.delivery_payment_method_id = dpm.id
 					WHERE 1 = 1
 					 AND (d.is_active = 1 OR 1 = 1)
-					 AND ` + adminDeliverySearchFilters + `
-				)
-				UNION ALL
-				(
-					SELECT
-                      o.created_date,
-					  IF(DATE_FORMAT(CONVERT_TZ(o.created_date,'+00:00','+08:00'), '%Y-%m-%d %h:%i %p') IS NULL, "", DATE_FORMAT(CONVERT_TZ(o.created_date,'+00:00','+08:00'), '%Y-%m-%d %h:%i %p')) AS date_created,
-					  CONCAT(u.lastname, ', ', u.firstname) AS recipient,
-					  o.id AS transaction_number,
-					  o.amount,
-					  'N/A' AS tracking_number,
-					  'Package' AS type,
-					  IF(o.is_active = 1, 'Procured', 'Voided') AS status,
-					  CONCAT(u_dropshipper.lastname, ', ', u_dropshipper.firstname) AS dropshipper,					  
-					  CONCAT(u.lastname, ', ', u.firstname) AS seller,
-					  r.name AS region,
-					  (SELECT COUNT(id) FROM order_detail WHERE order_id = o.id) AS items,
-					  "" AS delivery_payment_method
-					FROM
-					  ` + "`order`" + ` o
-					  INNER JOIN user u 
-					  	ON 1 = 1
-							AND o.seller_id = u.id
-					  INNER JOIN user u_dropshipper 
-					  	ON 1 = 1
-							AND o.dropshipper_id = u_dropshipper.id
-					  INNER JOIN region r
-						ON 1 = 1
-							AND o.region_id = r.id
-					WHERE 1 = 1
-					  AND (o.is_active = 1 OR 1 = 1)
-					  AND ` + adminOrderSearchFilters + `
+					 AND ` + sqlTranNumFilter + `
 				)
 			) AS a
 			ORDER BY created_date DESC
@@ -460,61 +439,33 @@ func (d *Delivery) GetTransactions(
 	if userType == "Dropshipper" {
 		sql = `
 			SELECT 
-			  date_created,
-			  recipient,
-			  transaction_number,
-			  CAST(amount AS DECIMAL(65,2)) AS amount,
-			  tracking_number,
-			  ` + "`type`" + `,  
-			  ` + "`status`" + `,
-			  delivery_payment_method
-			FROM (
-				(
-					SELECT 
-                      d.created_date,
-					  IF(DATE_FORMAT(CONVERT_TZ(d.created_date,'+00:00','+08:00'), '%Y-%m-%d %h:%i %p') IS NULL, "", DATE_FORMAT(CONVERT_TZ(d.created_date,'+00:00','+08:00'), '%Y-%m-%d %h:%i %p')) AS date_created,
-					  d.name AS recipient,
-					  d.id AS transaction_number,
-					  d.declared_amount AS amount,
-					  IF(d.tracking_number IS NULL, "", d.tracking_number) AS tracking_number,
-					  do.name AS type,
-					  ds.name AS status,
-					  dpm.name AS delivery_payment_method
-					FROM delivery d
-					INNER JOIN delivery_status ds 
-					  ON 1 = 1
-						AND d.delivery_status_id = ds.id 
-					INNER JOIN delivery_option do
-					  ON 1 = 1 
-						AND d.delivery_option_id = do.id
-				    INNER JOIN delivery_payment_method dpm
-					  ON 1 = 1
-						AND d.delivery_payment_method_id = dpm.id
-					WHERE 1 = 1
-					 AND d.dropshipper_id = ?
-				)
-				UNION ALL
-				(
-					SELECT
-                      o.created_date,
-					  IF(DATE_FORMAT(CONVERT_TZ(o.created_date,'+00:00','+08:00'), '%Y-%m-%d %h:%i %p') IS NULL, "", DATE_FORMAT(CONVERT_TZ(o.created_date,'+00:00','+08:00'), '%Y-%m-%d %h:%i %p')) AS date_created,
-					  CONCAT(u.lastname, ', ', u.firstname) AS recipient,
-					  o.id AS transaction_number,
-					  o.amount,
-					  'N/A' AS tracking_number,
-					  'Package' AS type,
-					  'Procured' AS status,
-					  "" AS delivery_payment_method
-					FROM
-					  ` + "`order`" + ` o
-					  INNER JOIN user u 
-					  ON 1 = 1
-						AND o.seller_id = u.id
-					WHERE 1 = 1
-					  AND o.dropshipper_id = ?
-				)
-			) AS a
-			ORDER BY created_date DESC
+			  IF(DATE_FORMAT(CONVERT_TZ(d.created_date,'+00:00','+08:00'), '%Y-%m-%d %h:%i %p') IS NULL, "", DATE_FORMAT(CONVERT_TZ(d.created_date,'+00:00','+08:00'), '%Y-%m-%d %h:%i %p')) AS date_created,
+			  d.name AS recipient,
+			  d.id AS transaction_number,
+			  0 AS amount,
+			  IF(d.tracking_number IS NULL, "", d.tracking_number) AS tracking_number,
+			  do.name AS type,
+			  ds.name AS status,
+			  "" AS delivery_payment_method,
+			  CONCAT(u.lastname, ', ', u.firstname) AS seller,
+			  d.policy_number,
+			  d.service_fee,
+			  d.seller_id
+			FROM delivery d
+			INNER JOIN delivery_status ds 
+			  ON 1 = 1
+				AND d.delivery_status_id = ds.id 
+			INNER JOIN delivery_option do
+			  ON 1 = 1 
+				AND d.delivery_option_id = do.id
+			INNER JOIN user u  
+			  ON 1 = 1
+				AND u.id = d.seller_id
+			WHERE 1 = 1
+			 AND d.dropshipper_id = ?
+			 AND ` + sqlTranNumFilter + `
+			 AND ` + sqlUserFilter + `
+			ORDER BY d.created_date DESC
 		`
 	}
 
@@ -555,26 +506,6 @@ func (d *Delivery) GetTransactions(
 						AND d.delivery_payment_method_id = dpm.id
 					WHERE 1 = 1
 					 AND d.seller_id = ?
-				)
-				UNION ALL
-				(
-					SELECT
-					  o.created_date,
-					  IF(DATE_FORMAT(CONVERT_TZ(o.created_date,'+00:00','+08:00'), '%Y-%m-%d %h:%i %p') IS NULL, "", DATE_FORMAT(CONVERT_TZ(o.created_date,'+00:00','+08:00'), '%Y-%m-%d %h:%i %p')) AS date_created,
-					  CONCAT(u.lastname, ', ', u.firstname) AS recipient,
-					  o.id AS transaction_number,
-					  o.amount,
-					  'N/A' AS tracking_number,
-					  'Package' AS type,
-					  'Procured' AS status,
-					  "" AS delivery_payment_method
-					FROM
-					  ` + "`order`" + ` o
-					  INNER JOIN user u 
-					  ON 1 = 1
-						AND o.seller_id = u.id
-					WHERE 1 = 1
-					  AND o.seller_id = ?
 				)
 			) AS a
 			ORDER BY created_date DESC
@@ -654,7 +585,7 @@ func (d *Delivery) GetTransactions(
 			if userType == "Rider" {
 				count, err = database.GetQueryCount(sql, deliveryStatus, res[0].RegionId)
 			} else {
-				count, err = database.GetQueryCount(sql, userId, userId)
+				count, err = database.GetQueryCount(sql, userId)
 			}
 		}
 
@@ -686,7 +617,7 @@ func (d *Delivery) GetTransactions(
 			if userType == "Rider" {
 				err = database.DBInstancePublic.Select(&container, sql, deliveryStatus, res[0].RegionId)
 			} else {
-				err = database.DBInstancePublic.Select(&container, sql, userId, userId)
+				err = database.DBInstancePublic.Select(&container, sql, userId)
 			}
 		}
 
@@ -1207,9 +1138,23 @@ func (d *Delivery) GetDashboardDeliveryStatus(userId int, userType string) (*Res
 	}
 
 	if userType == "Dropshipper" {
-		sql = `
+		// Old
+		/*sql = `
 			SELECT 
 				IF(SUM(declared_amount) IS NULL, 0, SUM(declared_amount))
+			FROM delivery d 
+			INNER JOIN delivery_status ds 
+				ON 1 = 1
+					AND d.delivery_status_id = ds.id 
+					AND ds.name IN ('Fulfilled', 'Delivered')
+			WHERE  1 = 1
+				AND d.dropshipper_id = ? 
+				AND is_active = 1
+		`*/
+
+		sql = `
+			SELECT 
+				0 AS declared_amount
 			FROM delivery d 
 			INNER JOIN delivery_status ds 
 				ON 1 = 1

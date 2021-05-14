@@ -1,5 +1,10 @@
 package deliveries
 
+import (
+	"github.com/gofiber/fiber/v2"
+	"strconv"
+)
+
 type Delivery struct {
 	ID     int
 	UserId int
@@ -20,7 +25,8 @@ type ResponseDashboardDeliveryStatus struct {
 }
 
 type ResponseTransactions struct {
-	DateCreated           string  `json:"date_created" db:"date_created" `
+	SellerId              int     `json:"seller_id" db:"seller_id"`
+	DateCreated           string  `json:"date_created" db:"date_created"`
 	Recipient             string  `json:"recipient" db:"recipient"`
 	TransactionNumber     string  `json:"transaction_number" db:"transaction_number"`
 	Amount                float64 `json:"amount" db:"amount"`
@@ -35,6 +41,10 @@ type ResponseTransactions struct {
 	Region        string `json:"region" db:"region"`
 	Address       string `json:"address" db:"address"`
 	ContactNumber string `json:"contact_number" db:"contact_number"`
+
+	/*Add these new fields*/
+	PolicyNumber string `json:"policy_number" db:"policy_number"`
+	ServiceFee   string `json:"service_fee" db:"service_fee"`
 }
 
 /**
@@ -162,4 +172,33 @@ type Top10Seller struct {
 type ValidateDropshipper struct {
 	Id     int    `json:"id" db:"id"`
 	Region string `json:"region" db:"region"`
+}
+
+type SearchTransactionFilter struct {
+	UserId  int `json:"user_id" db:"user_id"`
+	TranNum int `json:"tran_num" db:"tran_num"`
+}
+
+func (s *SearchTransactionFilter) Populate(c *fiber.Ctx) error {
+	reqUserId := c.Query("user_id")
+	reqTranNum := c.Query("tran_num")
+
+	if reqUserId != "" {
+		userId, err := strconv.Atoi(reqUserId)
+		if err != nil {
+			return err
+		} else {
+			s.UserId = userId
+		}
+	}
+	if reqTranNum != "" {
+		tranNum, err := strconv.Atoi(reqTranNum)
+		if err != nil {
+			return err
+		} else {
+			s.TranNum = tranNum
+		}
+	}
+
+	return nil
 }
