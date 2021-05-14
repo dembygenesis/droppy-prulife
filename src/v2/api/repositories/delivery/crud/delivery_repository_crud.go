@@ -231,8 +231,9 @@ func (d *deliveryRepository) validateDeliveryStatusLogic(tx *gorm.DB, p *deliver
 
 	// Logic: Pending Approval
 	if currentDeliveryStatus == config.DeliveryStatusPendingApproval {
-		if p.DeliveryStatus != config.DeliveryStatusProposed {
-			return errors.New("Pending Approval can only progress to 'Proposed'")
+		if p.DeliveryStatus != config.DeliveryStatusProposed &&
+			p.DeliveryStatus != config.DeliveryStatusRejected {
+			return errors.New("Pending Approval can only progress to 'Proposed' or 'Rejected'")
 		}
 	}
 
@@ -572,9 +573,8 @@ func (d *deliveryRepository) updateDeliveryItemStatus(tx *gorm.DB, p *delivery.R
 	if deliveryStatusId == 0 {
 		return errors.New("delivery_status_id not found")
 	}
-
-	sqlUpdateDeliveryImageUrl := `UPDATE delivery SET delivery_status_id = ? WHERE id = ?`
-	return tx.Exec(sqlUpdateDeliveryImageUrl, deliveryStatusId, p.DeliveryId).Error
+	sqlUpdateDeliveryStatus := `UPDATE delivery SET delivery_status_id = ? WHERE id = ?`
+	return tx.Exec(sqlUpdateDeliveryStatus, deliveryStatusId, p.DeliveryId).Error
 }
 
 func (d *deliveryRepository) updateCoinTotals(tx *gorm.DB, adminId int, userId int, amount float64) error {
@@ -905,13 +905,30 @@ func (d *deliveryRepository) updateDelivery(tx *gorm.DB, p *delivery.RequestUpda
 			return err
 		}
 	} else {
-		if currentDeliveryStatus == config.DeliveryStatusPendingApproval &&
-			p.DeliveryStatus == config.DeliveryStatusProposed {
-			// 'Pending Approval' -> 'Proposed'
+		if currentDeliveryStatus == config.DeliveryStatusPendingApproval && (
+			p.DeliveryStatus == config.DeliveryStatusProposed ||
+			p.DeliveryStatus == config.DeliveryStatusRejected) {
+			// 'Pending Approval' -> 'Proposed' || 'Rejected'
+			if p.CreatedByUserType != config.UserTypeSeller {
+				return errors.New("only sellers can update 'Pending Approval' to 'Proposed' or 'Rejected'")
+			}
+
+			if p.DeliveryStatus == config.DeliveryStatusProposed {
+				err = d.handlePendingApprovalToProposed(tx, p)
+				if err != nil {
+					return err
+				}
+			} else {
+				// If to rejected, just update the status - ignore the money part
+			}
+		} else if currentDeliveryStatus == config.DeliveryStatusPendingApproval &&
+			p.DeliveryStatus == config.DeliveryStatusRejected {
+			// 'Pending Approval' -> 'Rejected'
+			return errors.New("I got you")
 
 			// Accessible only to sellers
 			if p.CreatedByUserType != config.UserTypeSeller {
-				return errors.New("only sellers can update 'Pending Approval' to 'Proposed'")
+				return errors.New("only sellers can update 'Pending Approval' to 'Rejected'")
 			} else {
 				err = d.handlePendingApprovalToProposed(tx, p)
 				if err != nil {
@@ -972,7 +989,6 @@ func (d *deliveryRepository) updateDelivery(tx *gorm.DB, p *delivery.RequestUpda
 	} else {
 		fmt.Println("No error for updateDeliveryItemStatus")
 	}
-
 	return nil
 }
 
