@@ -13,7 +13,8 @@ CREATE PROCEDURE `add_withdrawal` (
     p_amount INTEGER,
     p_bank_no TEXT,
     p_bank_type_id TEXT,
-    p_bank_acount_name TEXT
+    p_bank_acount_name TEXT,
+    p_contact_no TEXT
 )
 BEGIN
 
@@ -32,12 +33,12 @@ BEGIN
         u_t.coin_amount
     INTO @user_count, @user_id, @coin_amount
     FROM `user` u
-    INNER JOIN user_type ut
-        ON 1 = 1
-            AND u.user_type_id = ut.id
-    INNER JOIN user_total u_t
-        ON 1 = 1
-            AND u.id = u_t.user_id
+             INNER JOIN user_type ut
+                        ON 1 = 1
+                            AND u.user_type_id = ut.id
+             INNER JOIN user_total u_t
+                        ON 1 = 1
+                            AND u.id = u_t.user_id
     WHERE 1 = 1
       AND u.id = p_user_id
       AND u.is_active = 1
@@ -58,8 +59,12 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Coins must not be 0.';
     END IF;
 
-    IF @coin_amount < @total_amount OR @total_amount < @WITHDRAWAL_FEE THEN
+    IF @coin_amount < @total_amount THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'User does not have enough coins to make a withdrawal';
+    END IF;
+
+    IF @total_amount < @WITHDRAWAL_FEE THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'You must withdraw an amount greater than the withdrawal fee';
     END IF;
 
     SET @admin_account = get_max_admin_id();
@@ -78,7 +83,8 @@ BEGIN
         `withdrawal_status_id`,
         `bank_no`,
         `bank_type_id`,
-        `bank_account_name`
+        `bank_account_name`,
+        `contact_no`
     )
     VALUES
     (
@@ -92,7 +98,8 @@ BEGIN
         (SELECT id FROM withdrawal_status WHERE `name` = 'Pending'),
         p_bank_no,
         p_bank_type_id,
-        p_bank_acount_name
+        p_bank_acount_name,
+        p_contact_no
     );
 
     SET @withdrawal_id_created = LAST_INSERT_ID();
@@ -129,14 +136,14 @@ BEGIN
       Update totals
      */
 
-     -- Update user
+    -- Update user
     UPDATE user_total
-        SET coin_amount = coin_amount - ABS(@total_amount)
+    SET coin_amount = coin_amount - ABS(@total_amount)
     WHERE user_id = p_user_id;
 
-     -- Update admin
+    -- Update admin
     UPDATE user_total
-        SET coin_amount = coin_amount + ABS(@total_amount)
+    SET coin_amount = coin_amount + ABS(@total_amount)
     WHERE user_id = @admin_account;
 
     -- SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Set delivery test';

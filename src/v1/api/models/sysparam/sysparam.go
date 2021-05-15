@@ -21,8 +21,10 @@ func (s *SysParam) Update(v string) (*sql.Result, error) {
 
 func (s *SysParam) GetAll() (*ResponseSysParam, error) {
 	var responseSysParam ResponseSysParam
+	var sql string
 
-	sql := "SELECT `key`, `value` FROM sysparam"
+	// sql := "SELECT `key`, IF(`value` IS NULL, "", `value`) AS `value` FROM sysparam"
+	sql = "SELECT `key`, IF(`value` IS NULL, '', `value`) AS `value` FROM sysparam"
 	err := database.DBInstancePublic.Select(&responseSysParam, sql)
 
 	fmt.Println("err", err)

@@ -23,6 +23,7 @@ type ResponseWithdrawalList struct {
 	UserFullName       string  `json:"user_fullname,omitempty" db:"user_fullname"`
 	UserType           string  `json:"user_type,omitempty" db:"user_type"`
 	Description        string  `json:"description,omitempty" db:"description"`
+	ContactNo          string  `json:"contact_no,omitempty" db:"contact_no"`
 }
 
 /**
@@ -33,6 +34,7 @@ type ParamsCreateWithdrawal struct {
 	BankNo          string  `json:"bank_no" db:"bank_no"`
 	BankTypeId      float64 `json:"bank_type_id" db:"bank_type_id"`
 	BankAccountName string  `json:"bank_account_name" db:"bank_account_name"`
+	ContactNo       string  `json:"contact_no" db:"contact_no"`
 }
 
 type ParamsUpdateWithdrawal struct {

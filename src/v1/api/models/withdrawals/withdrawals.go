@@ -2,7 +2,10 @@ package withdrawals
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/dembygenesis/droppy-prulife/src/v1/api/database"
+	"github.com/dembygenesis/droppy-prulife/utilities/response_builder"
+	string2 "github.com/dembygenesis/droppy-prulife/utilities/string"
 )
 
 func (w *Withdrawal) Update(p ParamsUpdateWithdrawal) (sql.Result, error) {
@@ -23,7 +26,7 @@ func (w *Withdrawal) Update(p ParamsUpdateWithdrawal) (sql.Result, error) {
 
 func (w *Withdrawal) Create(p ParamsCreateWithdrawal) (sql.Result, error) {
 	sql := `
-		CALL add_withdrawal(?, ?, ?, ?, ?)
+		CALL add_withdrawal(?, ?, ?, ?, ?, ?)
 	`
 
 	res, err := database.DBInstancePublic.Exec(sql,
@@ -32,21 +35,27 @@ func (w *Withdrawal) Create(p ParamsCreateWithdrawal) (sql.Result, error) {
 		p.BankNo,
 		p.BankTypeId,
 		p.BankAccountName,
+		p.ContactNo,
 	)
 
 	return res, err
 }
 
-func (w *Withdrawal) GetAll() (*[]ResponseWithdrawalList, error) {
-	var responseWithdrawalList []ResponseWithdrawalList
+func (w *Withdrawal) GetAll(page int, rows int, filters []string) (*[]ResponseWithdrawalList, response_builder.Pagination, error) {
+	var container []ResponseWithdrawalList
+	var pagination response_builder.Pagination
 
-	// Default is all
-	filter := "1 = 1"
+	// Handle filters
+	filter := ""
 
 	isDropshipperOrSeller := w.UserType == "Dropshipper" || w.UserType == "Seller"
 
 	if isDropshipperOrSeller {
-		filter = "w.user_id = ?"
+		filter += "AND w.user_id = ? "
+	}
+
+	if len(filters) != 0 {
+		filter += "AND ws.name IN (" + string2.GetJoinedStringForWhereIn(filters) + ") "
 	}
 
 	sql := `
@@ -67,7 +76,8 @@ func (w *Withdrawal) GetAll() (*[]ResponseWithdrawalList, error) {
 			WHEN ws.name = 'Pending' THEN 'N/A'
 			WHEN ws.name = 'Completed' THEN IF(w.reference_number IS NULL, '', w.reference_number)
 			WHEN ws.name = 'Voided' THEN IF(w.void_or_reject_reason IS NULL, '', w.void_or_reject_reason) 
-		  END AS description
+		  END AS description,
+		  IF(w.contact_no IS NULL, "", w.contact_no) AS contact_no
 		FROM
 		  withdrawal w
 		  INNER JOIN withdrawal_status ws
@@ -84,17 +94,67 @@ func (w *Withdrawal) GetAll() (*[]ResponseWithdrawalList, error) {
 			AND w.bank_type_id = bt.id
 		WHERE 1 = 1
 		  AND w.is_active = 1
-		  AND ` + filter + `
+		  ` + filter + `
 		ORDER BY w.created_date DESC
 	`
 
-	var err error
+	/**
+	Pagination Logic
+	*/
 
-	if isDropshipperOrSeller {
-		err = database.DBInstancePublic.Select(&responseWithdrawalList, sql, w.UserID)
-	} else {
-		err = database.DBInstancePublic.Select(&responseWithdrawalList, sql)
+	paginate := func () (*[]ResponseWithdrawalList, response_builder.Pagination, error) {
+		var count int
+		var err error
+
+		/**
+		Use this
+		*/
+		if isDropshipperOrSeller {
+			fmt.Println("Executing here becsause dropshipper or sellers", w.UserID)
+			count, err = database.GetQueryCount(sql, w.UserID)
+		} else {
+			count, err = database.GetQueryCount(sql)
+		}
+
+		fmt.Println("================= withdrawal", sql)
+		// End this
+
+		// Fail error if error
+		if err != nil {
+			return &container, pagination, err
+		}
+
+		// Just return blank entries if there's no count (save operations)
+		if count == 0 {
+			pagination.Pages = make([]int, 0)
+			return &container, pagination, nil
+		}
+
+		sql, pages, rowsPerPage, offset, page, totalCount, resultCount := database.GetPaginationDetails(
+			sql,
+			count,
+			page,
+			rows,
+			1000,
+		)
+
+		pagination.SetData(rowsPerPage, offset, pages, rows, page, totalCount, resultCount)
+
+		// Perform query
+		if isDropshipperOrSeller {
+			err = database.DBInstancePublic.Select(&container, sql, w.UserID)
+		} else {
+			err = database.DBInstancePublic.Select(&container, sql)
+		}
+
+		if err != nil {
+			return &container, pagination, err
+		}
+
+		return &container, pagination, nil
 	}
 
-	return &responseWithdrawalList, err
+	res, pagination, err := paginate()
+
+	return res, pagination, err
 }

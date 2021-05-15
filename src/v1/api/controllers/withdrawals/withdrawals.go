@@ -1,9 +1,11 @@
 package withdrawals
 
 import (
+	"encoding/json"
 	WithdrawalModel "github.com/dembygenesis/droppy-prulife/src/v1/api/models/withdrawals"
 	ResponseBuilder "github.com/dembygenesis/droppy-prulife/utilities/response_builder"
 	"github.com/gofiber/fiber/v2"
+	"strconv"
 )
 
 func Update(c *fiber.Ctx) error {
@@ -127,9 +129,52 @@ func GetAll(c *fiber.Ctx) error {
 	userId := c.Locals("tokenExtractedUserId").(int)
 	userType := c.Locals("tokenExtractedUserType").(string)
 
+	/**
+	Pagination
+	*/
+	var page int
+	var rows int
+
+	// Set default rows to 100 if not paginated
+	if c.Query("page") == "" {
+		page = 0
+	} else {
+		page, _ = strconv.Atoi(c.Query("page"))
+	}
+
+	if c.Query("rows") == "" {
+		rows = 100
+	} else {
+		rows, _ = strconv.Atoi(c.Query("rows"))
+
+		if rows <= 0 {
+			rows = 1000
+		}
+	}
+
+	/**
+	Filters
+	*/
+	var filters []string
+
+	f := c.Query("search")
+
+	if f != "" {
+		err := json.Unmarshal([]byte(f), &filters)
+
+		if err != nil {
+			r := ResponseBuilder.Response{}
+			r.HttpCode = 200
+			r.ResponseMessage = "Something went wrong when trying to decode the filters"
+			r.AddErrors("Something went wrong when trying to decode the filters " + err.Error() + "with value of : " + f)
+
+			return c.JSON(r)
+		}
+	}
+
 	w := WithdrawalModel.Withdrawal{UserID: userId, UserType: userType}
 
-	res, err := w.GetAll()
+	res, pagination, err := w.GetAll(page, rows, filters)
 
 	if err != nil {
 		r := ResponseBuilder.Response{}
@@ -143,6 +188,7 @@ func GetAll(c *fiber.Ctx) error {
 	r := ResponseBuilder.Response{
 		HttpCode:        200,
 		ResponseMessage: "Here's the withdrawals",
+		Pagination:      &pagination,
 	}
 
 	if len(*res) == 0 {
