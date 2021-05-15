@@ -45,9 +45,7 @@ func (h *deliveryHandler) Update(c *fiber.Ctx) error {
 		return utils.RespondError(c, config.InsertFailed, appError)
 	}
 
-	return utils.Respond(c, config.UpdateSuccess, "Successfully created the delivery", nil)
-
-	return nil
+	return utils.Respond(c, config.UpdateSuccess, "Successfully updated the delivery", nil)
 }
 
 func (h *deliveryHandler) Create(c *fiber.Ctx) error {

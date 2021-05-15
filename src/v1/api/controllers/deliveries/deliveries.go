@@ -716,7 +716,7 @@ func Transactions(c *fiber.Ctx) error {
 	r.HttpCode = 200
 	r.ResponseMessage = "Here's your store details"
 	r.SetResponseData(res)
-	r.Pagination =& pagination
+	r.Pagination = &pagination
 
 	return c.JSON(r)
 }

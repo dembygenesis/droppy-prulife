@@ -773,6 +773,8 @@ func (d *deliveryRepository) handlePendingApprovalToProposed(tx *gorm.DB, p *del
 		if err != nil {
 			return errors.New("error executing last minute updates before moving delivery to 'Proposed': " + err.Error())
 		}
+	} else {
+		fmt.Println("Has no last minute updates")
 	}
 
 	return nil

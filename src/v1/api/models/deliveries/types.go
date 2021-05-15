@@ -36,15 +36,17 @@ type ResponseTransactions struct {
 	Items                 float64 `json:"items" db:"items"`
 	DeliveryPaymentMethod string  `json:"delivery_payment_method" db:"delivery_payment_method"`
 
-	Dropshipper   string `json:"dropshipper" db:"dropshipper"`
-	SellerName    string `json:"seller" db:"seller"`
-	Region        string `json:"region" db:"region"`
-	Address       string `json:"address" db:"address"`
-	ContactNumber string `json:"contact_number" db:"contact_number"`
+	Dropshipper     string `json:"dropshipper" db:"dropshipper"`
+	SellerName      string `json:"seller" db:"seller"`
+	Region          string `json:"region" db:"region"`
+	Address         string `json:"address" db:"address"`
+	ContactNumber   string `json:"contact_number" db:"contact_number"`
+	ItemDescription string `json:"item_description" db:"item_description"`
 
 	/*Add these new fields*/
 	PolicyNumber string `json:"policy_number" db:"policy_number"`
 	ServiceFee   string `json:"service_fee" db:"service_fee"`
+	Note         string `json:"note" db:"note"`
 }
 
 /**

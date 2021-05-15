@@ -390,7 +390,9 @@ func (d *Delivery) GetTransactions(
 			  region,
 			  seller,
 			  dropshipper,
-			  delivery_payment_method
+			  delivery_payment_method,
+			  d.contact_number,
+			  d.item_description
 			FROM (
 				(
 					SELECT 
@@ -453,7 +455,11 @@ func (d *Delivery) GetTransactions(
 			  CONCAT(u.lastname, ', ', u.firstname) AS seller,
 			  d.policy_number,
 			  d.service_fee,
-			  d.seller_id
+			  d.seller_id,
+			  d.note,
+			  d.address,
+			  d.contact_number,
+			  d.item_description
 			FROM delivery d
 			INNER JOIN delivery_status ds 
 			  ON 1 = 1
@@ -490,7 +496,11 @@ func (d *Delivery) GetTransactions(
 			  CONCAT(u.lastname, ', ', u.firstname) AS seller,
 			  d.policy_number,
 			  d.service_fee,
-			  d.seller_id
+			  d.seller_id,
+			  d.note,
+			  d.address,
+			  d.contact_number,
+			  d.item_description
 			FROM delivery d
 			INNER JOIN delivery_status ds 
 			  ON 1 = 1
@@ -503,6 +513,7 @@ func (d *Delivery) GetTransactions(
 				AND u.id = d.seller_id
 			WHERE 1 = 1
 			 AND ` + sqlUserFilter + `
+			 AND ` + sqlTranNumFilter + `
 			ORDER BY d.created_date DESC
 		`
 	}
@@ -569,7 +580,6 @@ func (d *Delivery) GetTransactions(
 	 */
 
 	paginate := func () (*[]ResponseTransactions, response_builder.Pagination, error) {
-
 		user := UserModel.User{ID: userId}
 
 		res, err := user.GetOne()
