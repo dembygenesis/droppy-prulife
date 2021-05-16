@@ -12,7 +12,7 @@ import (
 
 func mapUrlsV2(app *fiber.App) {
 
-	deliveryHandler := handlers.NewDeliveryHandler(services.NewDeliveryService(crud.NewDeliveryRepository()))
+	deliveryHandler := handlers.NewDeliveryHandler(services.NewDeliveryService( crud.NewDeliveryRepository() ))
 
 	api := app.Group("/api/v2", cors.New(), logger.New())
 

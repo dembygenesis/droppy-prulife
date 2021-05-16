@@ -1097,7 +1097,7 @@ func (d *Delivery) GetDashboardDeliveryStatus(userId int, userType string) (*Res
 	if userType == "Seller" {
 		sql = `
 			SELECT 
-				0 AS declared_amount
+				IF(SUM(0) IS NULL, 0, 0) AS declared_amount
 			FROM delivery d 
 			INNER JOIN delivery_status ds 
 				ON 1 = 1
@@ -1111,7 +1111,8 @@ func (d *Delivery) GetDashboardDeliveryStatus(userId int, userType string) (*Res
 		err := database.DBInstancePublic.Get(&DeclaredAmount, sql, userId)
 
 		if err != nil {
-			return &responseDashboardDeliveryStatus, err
+			// return &responseDashboardDeliveryStatus, err
+			return &responseDashboardDeliveryStatus, errors.New("Errors here 1: " + err.Error())
 		}
 
 		responseDashboardDeliveryStatus.TotalSales = DeclaredAmount
@@ -1134,7 +1135,7 @@ func (d *Delivery) GetDashboardDeliveryStatus(userId int, userType string) (*Res
 
 		sql = `
 			SELECT 
-				0 AS declared_amount
+				IF(SUM(0) IS NULL, 0, 0) AS declared_amount
 			FROM delivery d 
 			INNER JOIN delivery_status ds 
 				ON 1 = 1
@@ -1148,7 +1149,8 @@ func (d *Delivery) GetDashboardDeliveryStatus(userId int, userType string) (*Res
 		err := database.DBInstancePublic.Get(&DeclaredAmount, sql, userId)
 
 		if err != nil {
-			return &responseDashboardDeliveryStatus, err
+			// return &responseDashboardDeliveryStatus, err
+			return &responseDashboardDeliveryStatus, errors.New("Errors here 2: " + err.Error())
 		}
 
 		responseDashboardDeliveryStatus.TotalSales = DeclaredAmount

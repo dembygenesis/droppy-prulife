@@ -333,6 +333,12 @@ func (d *deliveryRepository) updateValidations(tx *gorm.DB, p *delivery.RequestU
 func (d *deliveryRepository) createValidations(tx *gorm.DB, p *delivery.RequestCreateDelivery) error {
 	var err error
 
+	/**
+		Comments: What and why, not how
+		Validations: Precursor to any transaction
+		How to call...
+	 */
+
 	// Validate: User Type
 	if p.CreatedByUserType != config.UserTypeDropshipper {
 		return errors.New("dropshippers are the only one's that can create a new policy")

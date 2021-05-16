@@ -11,6 +11,7 @@ DELIMITER $$
 CREATE PROCEDURE `add_withdrawal` (
     p_user_id INTEGER,
     p_amount INTEGER,
+
     p_bank_no TEXT,
     p_bank_type_id TEXT,
     p_bank_acount_name TEXT,
