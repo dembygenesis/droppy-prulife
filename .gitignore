@@ -1,5 +1,5 @@
 .env
 .idea
-./droppy_nba_go
-droppy_nba_go
+./droppy_cgnorthpeak_go
+droppy_cgnorthpeak_go
 /src/v1/api/public
