@@ -231,7 +231,6 @@ func (p *ParamsUpdate) Update(userType string) (sql.Result, error) {
 				  address = ?,
 				  birthday = ?,
 				  gender = ?,
-				  m88_account = ?,
 				  password = ?
 				WHERE id = ?;
 			`
@@ -254,7 +253,6 @@ func (p *ParamsUpdate) Update(userType string) (sql.Result, error) {
 				p.Address,
 				p.Birthday,
 				p.Gender,
-				p.M88Account,
 				encryptedPassword,
 				p.ID,
 			)
@@ -273,8 +271,7 @@ func (p *ParamsUpdate) Update(userType string) (sql.Result, error) {
 				  bank_no = ?,
 				  address = ?,
 				  birthday = ?,
-				  gender = ?,
-				  m88_account = ?
+				  gender = ?
 				WHERE id = ?;
 			`
 
@@ -290,7 +287,6 @@ func (p *ParamsUpdate) Update(userType string) (sql.Result, error) {
 				p.Address,
 				p.Birthday,
 				p.Gender,
-				p.M88Account,
 				p.ID,
 			)
 		}
@@ -317,7 +313,6 @@ func (p *ParamsUpdate) Update(userType string) (sql.Result, error) {
 				  bank_no = ?,
 				  address = ?,
 				  gender = ?,
-				  m88_account = ?,
 				  password = ?
 				WHERE id = ?;
 			`
@@ -335,7 +330,6 @@ func (p *ParamsUpdate) Update(userType string) (sql.Result, error) {
 				p.BankNo,
 				p.Address,
 				p.Gender,
-				p.M88Account,
 				encryptedPassword,
 				p.ID,
 			)
@@ -349,8 +343,7 @@ func (p *ParamsUpdate) Update(userType string) (sql.Result, error) {
 				  bank_type_id = ?,
 				  bank_no = ?,
 				  address = ?,
-				  gender = ?,
-				  m88_account = ?
+				  gender = ?
 				WHERE id = ?;
 			`
 
@@ -361,7 +354,6 @@ func (p *ParamsUpdate) Update(userType string) (sql.Result, error) {
 				p.BankNo,
 				p.Address,
 				p.Gender,
-				p.M88Account,
 				p.ID,
 			)
 		}
@@ -861,10 +853,6 @@ func (p *ParamsUpdate) NoEmptyFields() []string {
 
 	if p.Birthday == "" {
 		emptyFields = append(emptyFields, "birthday is empty")
-	}
-
-	if p.M88Account == "" {
-		emptyFields = append(emptyFields, "m88_account is empty")
 	}
 
 	if p.Gender == "" {
