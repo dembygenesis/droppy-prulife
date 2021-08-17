@@ -959,10 +959,9 @@ func (d *deliveryRepository) updateDelivery(tx *gorm.DB, p *delivery.RequestUpda
 			}
 		} else if currentDeliveryStatus == config.DeliveryStatusFulfilled &&
 			p.DeliveryStatus == config.DeliveryStatusDelivered {
-			// 'Fulfilled' -> 'Delivered' (just update the status)
 
 			// Accessible only to admins
-			if p.CreatedByUserType != config.UserTypeDropshipper {
+			if p.CreatedByUserType != config.UserTypeAdmin {
 				return errors.New("only admins can update 'Fulfilled' to 'Delivered'")
 			}
 		} else if currentDeliveryStatus == config.DeliveryStatusFulfilled &&
